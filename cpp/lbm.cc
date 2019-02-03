@@ -67,7 +67,7 @@ double LatticeBolzmann2D::calcPivot(const Vector2d& P,
    const Vector2d CE2 = E2 - C;
    N1 << CE1(1), CE1(0);
    N2 << CE2(1), CE2(0);
-   if ((E1(0) * C(1) - E1(1) * C(0)) > 0) {
+   if (((E1(0) - P(0)) * (C(1) - P(1)) - (E1(1) - P(1)) * (C(0) - P(0))) > 0) {
       N1(0) = -N1(0);
       N2(1) = -N2(1);
    } else {

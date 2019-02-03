@@ -107,6 +107,7 @@
 %extend Mesh<2, 2> {
    %template(getOrCreateDoubleAttributeOnVertex) getOrCreateAttributeOnVertex<double>;
    %template(getOrCreateIntListAttributeOnVertex) getOrCreateAttributeOnVertex<std::vector<int>>;
+   %template(getOrCreatePoint2DListAttributeOnFace) getOrCreateAttributeOnFace<std::vector<Eigen::Matrix<double, 2, 1>>>;
    %template(getOrCreatePoint2DAttributeOnFace) getOrCreateAttributeOnFace<Eigen::Matrix<double, 2, 1>>;
    %template(getOrCreatePoint2DAttributeOnEdge) getOrCreateAttributeOnEdge<Eigen::Matrix<double, 2, 1>>;
    %template(getOrCreatePoint2DListAttributeOnVertex) getOrCreateAttributeOnVertex<std::vector<Eigen::Matrix<double, 2, 1>>>;
