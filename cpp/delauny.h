@@ -64,6 +64,8 @@ public:
 
    void getFaces(std::vector<Triangle> &f) const;
 
+   void getHull(std::vector<int>& hull) const;
+
    void generate(Mesh<2, 2>& mesh) override;
 
 
@@ -77,12 +79,15 @@ private:
    };
 
    static constexpr double fuzz = 1.0e-6;
+   static constexpr double epsilon = 1.0e-10;
    static constexpr double bigscale = 1000.0;
    typedef unsigned long long int Ullong;
 
    std::vector<Eigen::Vector2d> pts;
    std::unordered_map<Ullong, int, NullHash> linmap;
    std::unordered_map<Ullong, int, NullHash> trimap;
+   std::vector<int> hull;
+   std::vector<int> pidx;
    LineHash linhash;
    TriangleHash trihash;
    std::vector<TriangleTreeElement> triangles;
@@ -90,12 +95,19 @@ private:
    size_t t;
    int ntree;
    int ntri;
+   int mostleftbottom;
    double delx;
    double dely;
    static unsigned int jran;
    int option;
    int npts;
    int ntreemax;
+
+   void calcHull();
+
+   static double orientation(const Eigen::Vector2d &p,
+                                    const Eigen::Vector2d &q,
+                                    const Eigen::Vector2d &i);
 
    inline int pointInTriangle(const TriangleTreeElement& trielm, const Eigen::Vector2d& p) const;
 

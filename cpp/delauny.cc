@@ -49,9 +49,118 @@ Delaunay2D::Delaunay2D()
    : npts(0), ntri(0), ntree(0), ntreemax(0)
 {}
 
+double Delaunay2D::orientation(const Vector2d &p,
+                               const Vector2d &q,
+                               const Vector2d &i)
+{
+   const Vector2d pq = q - p;
+   const Vector2d pi = i - p;
+   const double o = pq(0) * pi(1) - pq(1) * pi(0);
+   if (abs(o) > Delaunay2D::epsilon)
+      return o;
+   return 0.0;
+}
+
+void Delaunay2D::getHull(vector<int>& h) const
+{
+   h.insert(h.begin(), hull.begin(), hull.end());
+   //h.insert(h.begin(), pidx.begin(), pidx.end());
+}
+
+void Delaunay2D::calcHull()
+{
+   cout << "Initialize hull calculation ..." << endl;
+   pidx.resize(npts);
+   iota(pidx.begin(), pidx.end(), 0);
+   swap(pidx[0], pidx[mostleftbottom]);
+   cout << "Sorting points ..." << endl;
+   Vector2d p = pts[mostleftbottom];
+   size_t pstart = 0;
+   double maxcolin = 0.0;
+   sort(pidx.begin() + 1, pidx.end(), [&p, &maxcolin, &pstart, this](int a, int b) {
+      const double o = Delaunay2D::orientation(p, pts[a], pts[b]);
+      if (o == 0.0) {
+         const double pa = (pts[a] - p).squaredNorm();
+         const double pb = (pts[b] - p).squaredNorm();
+         const double m = max(pa, pb);
+         const bool res = pa < pb;
+         if (m > maxcolin) {
+            maxcolin = m;
+            pstart = res ? b : a;
+         }
+         return res;
+      }
+      return o > 0.0;
+   });
+   cout << "Calculating hull ..." << endl;
+   size_t istart = 0;
+   hull.push_back(mostleftbottom);
+   if (maxcolin > 0) {
+      const auto itstart = find(pidx.begin(), pidx.end(), pstart);
+      cout << "it found" << endl;
+      cout.flush();
+      hull.insert(hull.begin() + 1, pidx.begin() + 1, itstart + 1);
+      cout << "inserted" << endl;
+      cout.flush();
+      istart = distance(pidx.begin(), itstart);
+   }
+   /*p = pts[pidx[istart]];
+   Vector2d q = pts[pidx[istart + 1]];
+   Vector2d i = pts[pidx[istart + 2]];*/
+   cout << "istart: " << istart << endl;
+   cout.flush();
+   hull.push_back(pidx[istart + 1]);
+   hull.push_back(pidx[istart + 2]);
+   double o;
+   int top;
+   for (size_t i = 3; i < pidx.size(); i++) {
+      top = hull.back();
+      hull.pop_back();
+      while ((o = orientation(pts[hull.back()], pts[top], pts[pidx[i]])) < 0)   {
+         top = hull.back();
+         hull.pop_back();
+      }
+      if (o == 0.0) {
+         const size_t chkpoint = hull.size();
+         do {
+            hull.push_back(top);
+            hull.push_back(pidx[i]);
+            top = hull.back();
+         } while ((o = orientation(pts[hull.back()], pts[top], pts[pidx[i]])) == 0);
+         if (o > 0.0)
+            hull.resize(chkpoint);
+      }
+      hull.push_back(top);
+      hull.push_back(pidx[i]);
+   }
+   /*for (size_t ip = istart + 1; ip < (pidx.size() - 2); ip++) {
+      const double o = orientation(p, q, i);
+      if (o > 0) {
+         hull.push_back(pidx[ip]);
+         p = q;
+         q = i;
+         if (ip == (pidx.size() - 3))
+            break;
+         i = pts[ip + 2];
+         cout << "#" << ip << " is boundary" << endl;
+      } else if (o == 0.0) {
+         cout << "#" << ip << " is colinear" << endl;
+      } else {
+         cout << "#" << ip << " is not boundary" << endl;
+         q = p;
+         p = pts[hull[hull.size() - 2]];
+         //ip--;
+      }
+   }*/
+   hull.push_back(pidx[istart]);
+   cout << "Hull contains " << (hull.size() - 1) << " points" << endl;
+}
+
 void Delaunay2D::generate(Mesh<2> &mesh)
 {
    npts = mesh.points->size();
+   if (npts < 3)
+      throw logic_error("There is no mesh for only two points");
    ntri = 0;
    ntree = 0;
    ntreemax = 10 * npts + 1000;
@@ -66,15 +175,27 @@ void Delaunay2D::generate(Mesh<2> &mesh)
    double y1 = (*mesh.points)[0][1];
    double yh = y1;
 
+   mostleftbottom = 0;
    for (int i = 0; i < npts; i++) {
       pts[i] = (*mesh.points)[i];
       mesh.vertices.push_back(make_unique<Vertex<2>>(Vertex<2>(&mesh, i, i)));
       perm[i] = i;
-      x1 = min(x1, (*mesh.points)[i][0]);
+      const double xdiff = (*mesh.points)[i][0] - x1;
+      const bool ylower = (*mesh.points)[i][1] < y1;
+      if (ylower)
+         y1 = (*mesh.points)[i][1];
+      if (abs(xdiff) <= epsilon) {
+         if (ylower)
+            mostleftbottom = i;
+      } else if (xdiff < 0.0) {
+         x1 = (*mesh.points)[i][0];
+         mostleftbottom = i;
+      }
       xh = max(xh, (*mesh.points)[i][0]);
-      y1 = min(y1, (*mesh.points)[i][1]);
       yh = max(yh, (*mesh.points)[i][1]);
    }
+
+   calcHull();
 
    delx = xh - x1;
    dely = yh - y1;
