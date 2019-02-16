@@ -7,16 +7,31 @@
 
 #include <array>
 #include <unordered_map>
+#include <unordered_set>
 #include <memory>
 #include <algorithm>
 
 #include "attributes.h"
 #include "eigen.h"
+#include "utils.h"
 
-template<uint Dim, uint TopDim> class Vertex;
-template<uint Dim, uint TopDim> class Edge;
-template<uint Dim, uint TopDim> class Face;
-template<uint Dim, uint TopDim> class Mesh;
+template<uint Dim>
+class Vertex;
+
+template<uint Dim>
+class Edge;
+
+template<uint Dim>
+class Face;
+
+template<uint Dim>
+class Grid;
+
+template<uint Dim, uint TopDim>
+class Mesh;
+
+template<uint Dim, uint TopDim>
+class IMesher;
 
 class MeshElement
 {
@@ -24,12 +39,11 @@ public:
    virtual std::size_t size() const = 0;
 };
 
-template<uint SimplexDim, uint Dim, uint TopDim>
+template<uint Dim, uint SimplexDim>
 class Simplex : public MeshElement
 {
    static_assert(SimplexDim <= Dim, "Simplex dimension has to be smaller or equal than dimension");
    static_assert(Dim <= 3, "Dimension can only be 1, 2 or 3");
-   static_assert(TopDim <= Dim, "Topological dimension must be smaller or equal than dimension");
 
 private:
    template<bool, class TrueT = void, class FalseT = void>
@@ -51,17 +65,17 @@ private:
    using enable_if_else_t = typename enable_if_else<B, TrueT, FalseT>::type;
 
 public:
-   typedef enable_if_else_t<SimplexDim == 1, Vertex<Dim, TopDim>*,
-           enable_if_else_t<SimplexDim == 2, Edge<Dim, TopDim>*,
-           enable_if_else_t<SimplexDim == 3, Face<Dim, TopDim>*,
+   typedef enable_if_else_t<SimplexDim == 1, Vertex<Dim>*,
+           enable_if_else_t<SimplexDim == 2, Edge<Dim>*,
+           enable_if_else_t<SimplexDim == 3, Face<Dim>*,
            int > > >  FacetElementType;
 
    typedef enable_if_else_t<SimplexDim == 1, std::array<FacetElementType, 2>,
            enable_if_else_t<SimplexDim == 2, std::array<FacetElementType, 3>,
            enable_if_else_t<SimplexDim == 3, std::array<FacetElementType, 4>,
-           int > > >  FacetsType;
+           std::size_t > > >  FacetsType;
 
-   typedef std::array<int, SimplexDim + 1> FacetPointListType;
+   typedef std::array<std::size_t, SimplexDim + 1> FacetPointListType;
 
 private:
    template<class T, uint I>
@@ -69,7 +83,7 @@ private:
    {
       static constexpr int get(
               FacetPointListType &facetPoints,
-              const typename Simplex<I, Dim, TopDim>::FacetsType &facets,
+              const typename Simplex<Dim, I>::FacetsType &facets,
               int idx)
       {
          for (uint i = 0; i < facets.size(); i++)
@@ -83,11 +97,11 @@ private:
    {
       static constexpr int get(
               FacetPointListType &facetPoints,
-              const typename Simplex<0, Dim, TopDim>::FacetsType &facets,
-              int idx)
+              const typename Simplex<Dim, 0>::FacetsType &facets,
+              std::size_t idx)
       {
          if (!std::any_of(std::begin(facetPoints),
-                 std::end(facetPoints), [&](int i) { return i == facets;})) {
+                 std::end(facetPoints), [&](std::size_t i) { return i == facets;})) {
             facetPoints[idx] = facets;
             return idx + 1;
          }
@@ -98,13 +112,13 @@ private:
 public:
    Simplex() {}
 
-   Simplex(Mesh<Dim, TopDim>* mesh, const FacetsType& facets, int id)
-      : mesh(mesh), facets(facets), id(id), pts({-1})
+   Simplex(const FacetsType& facets, std::size_t id)
+      : facets(facets), id(id), pts({0})
    {
       GetPoints<void, SimplexDim>::get(pts, facets, 0);
    }
 
-   int getID() const
+   std::size_t getID() const
    {
       return id;
    }
@@ -117,16 +131,6 @@ public:
          throw std::out_of_range("Index out of range");
       }
       return pts[idx];
-   }
-
-   const Eigen::Matrix<double, Dim, 1>& getPoint(std::size_t idx) const
-   {
-      if (idx >= SimplexDim + 1) {
-         std::cout << "Simplex getPoint: Index out of bounds" << std::endl;
-         std::cout.flush();
-         throw std::out_of_range("Index out of range");
-      }
-      return (*mesh->points)[pts[idx]];
    }
 
    FacetElementType getFacet(std::size_t idx)
@@ -150,78 +154,111 @@ public:
    }
 
 protected:
-   int id;
+   std::size_t id;
    FacetsType facets;
    FacetPointListType pts;
-   Eigen::Matrix<double, Dim, 1> center;
-   Mesh<Dim, TopDim>* mesh;
 
 };
 
-template<uint Dim, uint TopDim = Dim>
-class Vertex : public Simplex<0, Dim, TopDim>
+template<uint Dim>
+class Vertex : public Simplex<Dim, 0>
 {
 public:
    Vertex() {}
 
-   Vertex(Mesh<Dim, TopDim>* mesh, const typename Vertex::FacetsType& hull, int id)
-      : Simplex<0, Dim, TopDim>(mesh, hull, id)
-   {
-   }
+   Vertex(const typename Vertex::FacetsType& facets, std::size_t id)
+      : Simplex<Dim, 0>(facets, id)
+   {}
 };
 
-template<uint Dim, uint TopDim = Dim>
-class Edge : public Simplex<1, Dim, TopDim>
+template<uint Dim>
+class Edge : public Simplex<Dim, 1>
 {
 public:
    Edge() {}
 
-   Edge(Mesh<Dim, TopDim>* mesh, const typename Edge::FacetsType& hull, int id)
-           : Simplex<1, Dim, TopDim>(mesh, hull, id)
-   {
-   }
+   Edge(const typename Edge::FacetsType& facets, std::size_t id)
+           : Simplex<Dim, 1>(facets, id)
+   {}
 
 };
 
-template<uint Dim, uint TopDim = Dim>
-class Face : public Simplex<2, Dim, TopDim>
+template<uint Dim>
+class Face : public Simplex<Dim, 2>
 {
    static_assert(Dim >= 2, "Face can only exist on 2D or 3D grid");
 
 public:
    Face() {}
 
-   Face(Mesh<Dim, TopDim>* mesh, const typename Face::FacetsType& hull, int id)
-           : Simplex<2, Dim, TopDim>(mesh, hull, id)
-   {
-   }
+   Face(const typename Face::FacetsType& facets, std::size_t id)
+           : Simplex<Dim, 2>(facets, id)
+   {}
 
 };
 
-template<uint Dim>
-class Cell : public Simplex<3, Dim, Dim>
+class Cell : public Simplex<3, 3>
 {
-   static_assert(Dim == 3, "Cell can only exist on a 3D grid");
-
 public:
    Cell() {}
 
-   Cell(Mesh<Dim, Dim>* mesh, const typename Cell::FacetsType& hull, int id)
-      : Simplex<3, Dim, Dim>(mesh, hull, id)
-   {
-   }
+   Cell(const typename Cell::FacetsType& facets, std::size_t id)
+      : Simplex<3, 3>(facets, id)
+   {}
 
 };
 
-class IMesh
+template<uint Dim, uint TopDim=Dim>
+class Mesh
+{};
+
+template<uint Dim>
+class Mesh<Dim, 0>
 {
+   static_assert(Dim >= 0 && Dim <= 3, "Dimension not supported");
+
 public:
+   Mesh(std::vector<Eigen::Matrix<double, Dim, 1>>* points);
+
+   template<uint TopDim>
+   Mesh(Mesh<Dim, TopDim>* mesh) : points(mesh->points)
+   {
+      static_assert(TopDim >= 0, "Dimension mismatch");
+      vertices = mesh->vertices;
+   }
+
+   const Eigen::Matrix<double, Dim, 1>& getPoint(std::size_t idx) const;
+
+   std::vector<Eigen::Matrix<double, Dim, 1>>* getPoints() const;
+
+   std::size_t getNumPoints() const;
+
+   Vertex<Dim>* getVertex(std::size_t idx) const;
+
+   Vertex<Dim>* getVertexByID(std::size_t id) const;
+
+   Vertex<Dim>* getOrCreateVertexByID(std::size_t id);
+
+   std::size_t getNumVertices() const;
+
    template<class T>
-   static inline Attribute<T>* getOrCreateAttribute(
-           const std::string &name,
-           std::unordered_map<std::string, std::unique_ptr<BaseAttribute>>& attrlst,
-           std::size_t size,
-           const T& def)
+   Attribute<T>* getOrCreateAttributeOnVertex(const std::string &name)
+   {
+      return Mesh<Dim, 0>::template getOrCreateAttribute<T>(name, vertexAttrs, vertices->size());
+   }
+
+   template<class T>
+   Attribute<T>* getOrCreateAttributeOnVertex(const std::string &name, const T& def)
+   {
+      return Mesh<Dim, 0>::template getOrCreateAttribute<T>(name, vertexAttrs, vertices->size(), def);
+   }
+
+protected:
+   template<class T>
+   static inline Attribute<T>* getOrCreateAttribute(const std::string &name,
+                                                    std::unordered_map<std::string, std::unique_ptr<BaseAttribute>>& attrlst,
+                                                    std::size_t size,
+                                                    const T& def)
    {
       const auto it = attrlst.find(name);
       if (it == attrlst.end()) {
@@ -232,10 +269,9 @@ public:
    }
 
    template<class T>
-   static inline Attribute<T>* getOrCreateAttribute(
-           const std::string &name,
-           std::unordered_map<std::string, std::unique_ptr<BaseAttribute>>& attrlst,
-           std::size_t size)
+   static inline Attribute<T>* getOrCreateAttribute(const std::string &name,
+                                                    std::unordered_map<std::string, std::unique_ptr<BaseAttribute>>& attrlst,
+                                                    std::size_t size)
    {
       const auto it = attrlst.find(name);
       if (it == attrlst.end()) {
@@ -244,178 +280,182 @@ public:
       }
       return static_cast<Attribute<T> *>(it->second.get());
    }
-};
 
-template<uint Dim, uint TopDim = Dim>
-class Mesh : public IMesh
-{
-   static_assert(Dim > 0 && Dim <= 3, "Dimension not supported");
-   static_assert(TopDim <= Dim, "Topological dimension not supported");
+   template<class T>
+   typename std::vector<T>::iterator insertSorted(std::vector<T>& vec, const T& item)
+   {
+      return vec.insert(std::upper_bound(vec.begin(), vec.end(), item), item);
+   }
+
+protected:
+   std::vector<Eigen::Matrix<double, Dim, 1>>* points;
+   std::unordered_map<std::string, std::unique_ptr<BaseAttribute>> vertexAttrs;
+   std::unique_ptr<std::vector<std::unique_ptr<Vertex<Dim>>>> vertices_owner;
+   std::vector<std::unique_ptr<Vertex<Dim>>>* vertices;
+   std::vector<std::size_t> refvertices;
+
 };
 
 template<uint Dim>
-class Mesh<Dim, 1>
+class Mesh<Dim, 1> : public Mesh<Dim, 0>
 {
+   static_assert(Dim >= 1, "Topological dimension not supported");
+
 public:
-   Mesh(std::vector<Eigen::Matrix<double, Dim, 1>>* points) : points(points) {}
+   Mesh(std::vector<Eigen::Matrix<double, Dim, 1>>* points);
 
-   Vertex<Dim, Dim>* getVertex(std::size_t idx) const
+   template<uint TopDim>
+   Mesh(Mesh<Dim, TopDim>* mesh) : Mesh<Dim, 0>(mesh)
    {
-      if (idx >= vertices.size()) {
-         std::cout << "Mesh1D getVertex: Index out of bounds" << std::endl;
-         std::cout.flush();
-         throw std::out_of_range("Vertex index out of range");
-      }
-      return vertices[idx].get();
+      static_assert(TopDim >= 1, "Dimension mismatch");
+      edges = mesh->edges;
+      vhash2id = mesh->vhash2id;
+      hull = std::make_unique<Mesh<Dim, 0>>(this);
    }
 
-   std::size_t getNumVertices() const
-   {
-      return vertices.size();
-   }
+   Edge<Dim>* getEdge(std::size_t idx) const;
 
-   Edge<Dim, Dim>* getEdge(std::size_t idx) const
-   {
-      if (idx >= edges.size()) {
-         std::cout << "Mesh1D getEdge: Index out of bounds" << std::endl;
-         std::cout.flush();
-         throw std::out_of_range("Edge index out of range");
-      }
-      return edges[idx].get();
-   }
+   Edge<Dim>* getEdgeByID(std::size_t id) const;
 
-   std::size_t getNumEdges() const
-   {
-      return edges.size();
-   }
+   Edge<Dim>* getOrCreateEdgeByID(std::size_t id);
 
-   template<class T>
-   Attribute<T>* getOrCreateAttributeOnVertex(const std::string &name)
-   {
-      return IMesh::getOrCreateAttribute<T>(name, vertexAttrs, vertices.size());
-   }
+   Edge<Dim>* getEdge(std::size_t vid1, std::size_t vid2) const;
 
-   template<class T>
-   Attribute<T>* getOrCreateAttributeOnVertex(const std::string &name, const T& def)
-   {
-      return IMesh::getOrCreateAttribute<T>(name, vertexAttrs, vertices.size(), def);
-   }
+   Edge<Dim>* getOrCreateEdge(std::size_t vid1, std::size_t vid2);
+
+   std::size_t getNumEdges() const;
+
+   Mesh<Dim, 0>* getHull() const;
 
    template<class T>
    Attribute<T>* getOrCreateAttributeOnEdge(const std::string &name)
    {
-      return IMesh::getOrCreateAttribute<T>(name, edgeAttrs, edges.size());
+      return Mesh<Dim, 0>::template getOrCreateAttribute<T>(name, edgeAttrs, edges->size());
    }
 
    template<class T>
    Attribute<T>* getOrCreateAttributeOnEdge(const std::string &name, const T& def)
    {
-      return IMesh::getOrCreateAttribute<T>(name, edgeAttrs, edges.size(), def);
+      return Mesh<Dim, 0>::template getOrCreateAttribute<T>(name, edgeAttrs, edges->size(), def);
    }
 
-   std::vector<Eigen::Matrix<double, Dim, 1>>* points;
-   std::vector<std::unique_ptr<Vertex<Dim>>> vertices;
-   std::vector<std::unique_ptr<Edge<Dim>>> edges;
-   std::unordered_map<unsigned long long int, Edge<Dim>*> edge2edge;
-   std::unordered_multimap<int, Edge<Dim>*> point2edge;
-
-private:
-   std::unordered_map<std::string, std::unique_ptr<BaseAttribute>> vertexAttrs;
+protected:
    std::unordered_map<std::string, std::unique_ptr<BaseAttribute>> edgeAttrs;
+   std::unique_ptr<std::vector<std::unique_ptr<Edge<Dim>>>> edges_owner;
+   std::unique_ptr<std::unordered_map<ullong, std::size_t>> vhash2id_owner;
+   std::vector<std::unique_ptr<Edge<Dim>>>* edges;
+   std::unordered_map<ullong, std::size_t>* vhash2id;
+   std::vector<std::size_t> refedges;
+   std::unordered_multimap<std::size_t, Edge<Dim>*> vertex2edge;
+   LineHash linhash;
+   std::unique_ptr<Mesh<Dim, 0>> hull;
 
 };
 
 template<uint Dim>
 class Mesh<Dim, 2> : public Mesh<Dim, 1>
 {
+   static_assert(Dim >= 2, "Topological dimension not supported");
+
 public:
-   Mesh(std::vector<Eigen::Matrix<double, Dim, 1>>* points) : Mesh<Dim, 1>(points) {}
+   Mesh(std::vector<Eigen::Matrix<double, Dim, 1>>* points);
 
-   Face<Dim, Dim>* getFace(std::size_t idx) const
+   template<uint TopDim>
+   Mesh(Mesh<Dim, TopDim>* mesh) : Mesh<Dim, 1>(mesh)
    {
-      if (idx >= faces.size()) {
-         std::cout << "Mesh2D getFace: Index out of bounds" << std::endl;
-         std::cout.flush();
-         throw std::out_of_range("Face index out of range");
-      }
-      return faces[idx].get();
+      static_assert(TopDim >= 2, "Dimension mismatch");
+      faces = mesh->faces;
+      ehash2id = mesh->ehash2id;
+      hull = std::make_unique<Mesh<Dim, 1>>(this);
    }
 
-   std::size_t getNumFaces() const
-   {
-      return faces.size();
-   }
+   Face<Dim>* getFace(std::size_t idx) const;
+
+   Face<Dim>* getFaceByID(std::size_t id) const;
+
+   Face<Dim>* getFace(std::size_t eid1, std::size_t eid2, std::size_t eid3) const;
+
+   Face<Dim>* getOrCreateFace(std::size_t eid1, std::size_t eid2, std::size_t eid3);
+
+   Face<Dim>* getOrCreateFace(Edge<Dim>* e1, Edge<Dim>* e2, Edge<Dim>* e3);
+
+   std::size_t getNumFaces() const;
+
+   Mesh<Dim, 1>* getHull() const;
 
    template<class T>
    Attribute<T>* getOrCreateAttributeOnFace(const std::string &name)
    {
-      return IMesh::getOrCreateAttribute<T>(name, facesAttrs, faces.size());
+      return Mesh<Dim, 0>::template getOrCreateAttribute<T>(name, facesAttrs, faces->size());
    }
 
-   /*template<class T>
+   template<class T>
    Attribute<T>* getOrCreateAttributeOnFace(const std::string &name, const T& def)
    {
-      return IMesh::getOrCreateAttribute<T>(name, facesAttrs, faces.size(), def);
-   }*/
+      return Mesh<Dim, 0>::template getOrCreateAttribute<T>(name, facesAttrs, faces->size(), def);
+   }
 
-   std::vector<std::shared_ptr<Face<Dim>>> faces;
-   std::unordered_map<unsigned long long int, Face<Dim>*> face2face;
-   std::unordered_multimap<unsigned long long int, Face<Dim>*> edge2face;
-   std::unordered_multimap<int, Face<Dim>*> point2face;
-
-private:
+protected:
    std::unordered_map<std::string, std::unique_ptr<BaseAttribute>> facesAttrs;
+   std::unique_ptr<std::vector<std::unique_ptr<Face<Dim>>>> faces_owner;
+   std::unique_ptr<std::unordered_map<ullong, std::size_t>> ehash2id_owner;
+   std::vector<std::unique_ptr<Face<Dim>>>* faces;
+   std::vector<std::size_t> reffaces;
+   std::unordered_map<ullong, std::size_t>* ehash2id;
+   /*std::unordered_multimap<ullong, Face<Dim>*> point2face;
+   std::unordered_multimap<ullong, Face<Dim>*> edge2face;*/
+   TriangleHash trihash;
+   std::unique_ptr<Mesh<Dim, 1>> hull;
 
 };
 
-template<uint Dim>
-class Mesh<Dim, 3> : public Mesh<Dim, 2>
+template<>
+class Mesh<3, 3> : public Mesh<3, 2>
 {
 public:
-   Mesh(std::vector<Eigen::Matrix<double, Dim, 1>>* points) : Mesh<Dim, 2>(points) {}
+   Mesh(std::vector<Eigen::Matrix<double, 3, 1>>* points);
 
-   Cell<Dim>* getBody(std::size_t idx) const
-   {
-      if (idx >= bodies.size()) {
-         std::cout << "Mesh3D getBody: Index out of bounds" << std::endl;
-         std::cout.flush();
-         throw std::out_of_range("Cell index out of range");
-      }
-      return bodies[idx].get();
-   }
+   Cell* getCell(std::size_t idx) const;
 
-   std::size_t getNumBodies() const
-   {
-      return bodies.size();
-   }
+   std::size_t getNumCells() const;
 
    template<class T>
    Attribute<T>* getOrCreateAttributeOnBody(const std::string &name)
    {
-      return IMesh::getOrCreateAttribute<T>(name, bodiesAttrs, bodies.size());
+      return Mesh<3, 0>::template getOrCreateAttribute<T>(name, bodiesAttrs, cells.size());
    }
 
    template<class T>
    Attribute<T>* getOrCreateAttributeOnBody(const std::string &name, const T& def)
    {
-      return IMesh::getOrCreateAttribute<T>(name, bodiesAttrs, bodies.size(), def);
+      return Mesh<3, 0>::template getOrCreateAttribute<T>(name, bodiesAttrs, cells.size(), def);
    }
 
-   std::vector<std::unique_ptr<Cell<3>>> bodies;
-   std::unordered_multimap<unsigned long long int, Cell<3>*> point2body;
-   std::unordered_multimap<unsigned long long int, Cell<3>*> edge2body;
-   std::unordered_multimap<unsigned long long int, Cell<3>*> face2body;
-
-private:
+protected:
+   std::vector<std::unique_ptr<Cell>> cells;
+   std::unordered_multimap<unsigned long long int, Cell*> point2body;
+   std::unordered_multimap<unsigned long long int, Cell*> edge2body;
+   std::unordered_multimap<unsigned long long int, Cell*> face2body;
    std::unordered_map<std::string, std::unique_ptr<BaseAttribute>> bodiesAttrs;
+   Mesh<3, 2>* hull;
 
 };
 
-template<uint Dim>
-class MeshGenerator
+template<uint Dim, uint TopDim>
+class HullMesh : public Mesh<Dim, TopDim - 1>
 {
 public:
-   virtual void generate(Mesh<Dim, Dim>& mesh) = 0;
+   HullMesh(Mesh<Dim, TopDim>& mesh);
+
+
+
+};
+
+template<uint Dim, uint TopDim>
+class IMesher
+{
+public:
+   virtual void generate(Mesh<Dim, TopDim>& mesh) = 0;
 };
 
 #endif //LBM_POINT_H

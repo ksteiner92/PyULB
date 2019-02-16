@@ -19,3 +19,4 @@ include_directories(${EIGEN3_INCLUDE_DIR})
 
 add_subdirectory(cpp)
 add_subdirectory(swig)
+add_subdirectory(test)

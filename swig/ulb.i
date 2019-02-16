@@ -9,6 +9,7 @@
 %include <typemaps.i>
 %include <std_vector.i>
 %include <std_string.i>
+%include <std_array.i>
 %include "eigen.i"
 
 %eigen_typemaps(Eigen::Vector2d)
@@ -19,11 +20,10 @@
 
 %template(Point1DList) std::vector<Eigen::Matrix<double, 1, 1>>;
 %template(Point2DList) std::vector<Eigen::Matrix<double, 2, 1>>;
-//%template(Point2DList) std::vector<Eigen::Vector2d>;
 %template(Point3DList) std::vector<Eigen::Matrix<double, 3, 1>>;
 
-%include "mesh.i"
 %include "delauny.h"
+%include "mesh.i"
 
 %template(VectorDouble) std::vector<double>;
 %template(VectorInt) std::vector<int>;

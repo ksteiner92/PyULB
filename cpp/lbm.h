@@ -36,21 +36,19 @@ private:
    double dt;
    double tau;
 
-   Edge<2>* getEdge(int a, int b) const;
+   static double calcPivot(const Eigen::Vector2d &P,
+                           const Eigen::Vector2d &P1,
+                           const Eigen::Vector2d &P2,
+                           const Eigen::Vector2d &C,
+                           Eigen::Vector2d &N1,
+                           Eigen::Vector2d &N2);
 
-   static double calcPivot(const Eigen::Vector2d& P,
-           const Eigen::Vector2d& P1,
-           const Eigen::Vector2d& P2,
-           const Eigen::Vector2d& C,
-           Eigen::Vector2d& N1,
-           Eigen::Vector2d& N2);
-
-   inline static double triangleArea(const Eigen::Vector2d& A,
-           const Eigen::Vector2d& B,
-           const Eigen::Vector2d& C);
+   inline static double triangleArea(const Eigen::Vector2d &A,
+                                     const Eigen::Vector2d &B,
+                                     const Eigen::Vector2d &C);
 
    template<class T, uint SimplexDim>
-   static T interpolateVertexAttributeOnSimplex(Simplex<SimplexDim, 2, 2>* simplex, Attribute<T>* attr);
+   static T interpolateVertexAttributeOnSimplex(Simplex<2, SimplexDim>* simplex, Attribute<T>* attr);
 };
 
 

@@ -8,26 +8,13 @@
 using namespace std;
 using namespace Eigen;
 
-Edge<2>* LatticeBolzmann2D::getEdge(int a, int b) const
-{
-   auto key = linhash(make_tuple(a, b));
-   auto it = mesh->edge2edge.find(key);
-   if (it == mesh->edge2edge.end()) {
-      key = linhash(make_tuple(b, a));
-      it = mesh->edge2edge.find(key);
-      if (it == mesh->edge2edge.end())
-         throw "Edge does not exist";
-   }
-   return it->second;
-}
-
 double LatticeBolzmann2D::triangleArea(const Vector2d& A, const Vector2d& B, const Vector2d& C)
 {
    return abs(A[0] * (B[1] - C[1]) + B[0] * (C[1] - A[1]) + C[0] * (A[1] - B[1])) * 0.5;
 }
 
 template<class T, uint SimplexDim>
-T LatticeBolzmann2D::interpolateVertexAttributeOnSimplex(Simplex<SimplexDim, 2, 2>* simplex,
+T LatticeBolzmann2D::interpolateVertexAttributeOnSimplex(Simplex<2, SimplexDim>* simplex,
         Attribute<T>* attr)
 {
    T val = 0;
@@ -56,12 +43,12 @@ void LatticeBolzmann2D::calculate()
    }
 }
 
-double LatticeBolzmann2D::calcPivot(const Vector2d& P,
-        const Vector2d& E1,
-        const Vector2d& E2,
-        const Vector2d& C,
-        Vector2d& N1,
-        Vector2d& N2)
+double LatticeBolzmann2D::calcPivot(const Vector2d &P,
+                                    const Vector2d &E1,
+                                    const Vector2d &E2,
+                                    const Vector2d &C,
+                                    Vector2d &N1,
+                                    Vector2d &N2)
 {
    const Vector2d CE1 = E1 - C;
    const Vector2d CE2 = E2 - C;
@@ -98,12 +85,12 @@ LatticeBolzmann2D::LatticeBolzmann2D(Mesh<2, 2>* mesh)
    for (size_t i = 0; i < mesh->getNumFaces(); i++) {
       // Calculate face center point
       const Face<2>* face = mesh->getFace(i);
-      P[0] = face->getPoint(0);
       Pidx[0] = (*face)[0];
-      P[1] = face->getPoint(1);
+      P[0] = mesh->getPoint(Pidx[0]);
       Pidx[1] = (*face)[1];
-      P[2] = face->getPoint(2);
+      P[1] = mesh->getPoint(Pidx[1]);
       Pidx[2] = (*face)[2];
+      P[2] = mesh->getPoint(Pidx[2]);
       E[0] = P[0] + (P[1] - P[0]) * 0.5;
       const Vector2d C = P[2] + (E[0] - P[2]) * 2.0 / 3.0;
       C_i->setValue(i, C);
@@ -112,15 +99,15 @@ LatticeBolzmann2D::LatticeBolzmann2D(Mesh<2, 2>* mesh)
       C_ij->getValue(Pidx[2]).push_back(C);
 
       // Calculate edge center points
-      E_i->setValue(getEdge(Pidx[0], Pidx[1])->getID(), E[0]);
+      E_i->setValue(mesh->getEdge(Pidx[0], Pidx[1])->getID(), E[0]);
       E_ij->getValue(Pidx[0]).push_back(E[0]);
       E_ij->getValue(Pidx[1]).push_back(E[0]);
       E[1] = P[0] + (P[2] - P[0]) * 0.5;
-      E_i->setValue(getEdge(Pidx[0], Pidx[2])->getID(), E[1]);
+      E_i->setValue(mesh->getEdge(Pidx[0], Pidx[2])->getID(), E[1]);
       E_ij->getValue(Pidx[0]).push_back(E[1]);
       E_ij->getValue(Pidx[2]).push_back(E[1]);
       E[2] = P[1] + (P[2] - P[1]) * 0.5;
-      E_i->setValue(getEdge(Pidx[1], Pidx[2])->getID(), E[2]);
+      E_i->setValue(mesh->getEdge(Pidx[1], Pidx[2])->getID(), E[2]);
       E_ij->getValue(Pidx[1]).push_back(E[2]);
       E_ij->getValue(Pidx[2]).push_back(E[2]);
 

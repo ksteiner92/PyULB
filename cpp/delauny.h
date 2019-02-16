@@ -50,24 +50,16 @@ public:
    }
 
 private:
-   Eigen::Vector2d centeroid;
    std::array<int, 3> pidx;
    std::vector<Eigen::Vector2d>* pts;
 };
 
-class Delaunay2D : public MeshGenerator<2>
+class Delaunay2D : public IMesher<2, 2>
 {
 public:
    Delaunay2D();
 
-   //double interpolate(const Eigen::Vector2d* p, const std::vector<double>& fnvals, double defval = 0.0) const;
-
-   void getFaces(std::vector<Triangle> &f) const;
-
-   void getHull(std::vector<int>& hull) const;
-
    void generate(Mesh<2, 2>& mesh) override;
-
 
 private:
    struct TriangleTreeElement
@@ -106,8 +98,8 @@ private:
    void calcHull();
 
    static double orientation(const Eigen::Vector2d &p,
-                                    const Eigen::Vector2d &q,
-                                    const Eigen::Vector2d &i);
+                             const Eigen::Vector2d &q,
+                             const Eigen::Vector2d &i);
 
    inline int pointInTriangle(const TriangleTreeElement& trielm, const Eigen::Vector2d& p) const;
 
@@ -119,44 +111,10 @@ private:
 
    void eraseTriangle(int a, int b, int c, int d0, int d1, int d2);
 
-   inline Edge<2>* getOrCreateEdge(Mesh<2> &mesh, int a, int b) const
-   {
-      auto key = linhash(std::make_tuple(a, b));
-      auto it = mesh.edge2edge.find(key);
-      if (it == mesh.edge2edge.end()) {
-         key = linhash(std::make_tuple(b, a));
-         it = mesh.edge2edge.find(key);
-      }
-      if (it == mesh.edge2edge.end()) {
-         mesh.edges.push_back(std::make_unique<Edge<2>>(Edge<2>(&mesh,
-                 {mesh.vertices[a].get(), mesh.vertices[b].get()}, mesh.edges.size())));
-         Edge<2>* edge = mesh.edges.back().get();
-         mesh.edge2edge[key] = edge;
-         mesh.point2edge.insert({a, edge});
-         mesh.point2edge.insert({b, edge});
-         return edge;
-      }
-      return it->second;
-   }
-
-   inline Face<2>* getOrCreateFace(Mesh<2> &mesh, Edge<2>* e1, Edge<2>* e2, Edge<2>* e3) const
-   {
-      const auto key = trihash(std::make_tuple(e1->getID(), e2->getID(), e3->getID()));
-      const auto it = mesh.face2face.find(key);
-      if (it == mesh.face2face.end()) {
-         mesh.faces.push_back(std::make_shared<Face<2>>(Face<2>(&mesh, {e1, e2, e3}, mesh.faces.size())));
-         Face<2>* face = mesh.faces.back().get();
-         mesh.face2face[key] = face;
-         for (uint i = 0; i < 3; i++)
-            mesh.point2face.insert(std::make_pair((*face)[i], face));
-         //mesh.point2edge.insert({key, e1});
-         //mesh.point2edge.insert({b, e1});
-         return face;
-      }
-      return it->second;
-   }
-
-   static inline double inCircle(const Eigen::Vector2d& d, const Eigen::Vector2d& a, const Eigen::Vector2d& b, const Eigen::Vector2d& c);
+   static inline double inCircle(const Eigen::Vector2d &d,
+                                 const Eigen::Vector2d &a,
+                                 const Eigen::Vector2d &b,
+                                 const Eigen::Vector2d &c);
 
 };
 

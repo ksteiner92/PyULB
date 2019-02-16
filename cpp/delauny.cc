@@ -32,11 +32,8 @@ Circle Circle::circumCircle(const Vector2d& a, const Vector2d& b, const Vector2d
    const double c0 = c[0] - b[0];
    const double c1 = c[1] - b[1];
    double det = a0 * c1 - c0 * a1;
-   if (det == 0.0) {
-      std::cout << "Circle: Index out of bounds" << std::endl;
-      std::cout.flush();
-      throw ("No circle through colinear points");
-   }
+   if (det == 0.0)
+      throw logic_error("No circle through colinear points");
    det = 0.5 / det;
    const double asq = a0 * a0 + a1 * a1;
    const double csq = c0 * c0 + c1 * c1;
@@ -45,6 +42,7 @@ Circle Circle::circumCircle(const Vector2d& a, const Vector2d& b, const Vector2d
    const double rad2 = ctr0 * ctr0 + ctr1 * ctr1;
    return Circle({ctr0 + b[0], ctr1 + b[1]}, sqrt(rad2));
 }
+
 Delaunay2D::Delaunay2D()
    : npts(0), ntri(0), ntree(0), ntreemax(0)
 {}
@@ -59,12 +57,6 @@ double Delaunay2D::orientation(const Vector2d &p,
    if (abs(o) > Delaunay2D::epsilon)
       return o;
    return 0.0;
-}
-
-void Delaunay2D::getHull(vector<int>& h) const
-{
-   h.insert(h.begin(), hull.begin(), hull.end());
-   //h.insert(h.begin(), pidx.begin(), pidx.end());
 }
 
 void Delaunay2D::calcHull()
@@ -156,46 +148,47 @@ void Delaunay2D::calcHull()
    cout << "Hull contains " << (hull.size() - 1) << " points" << endl;
 }
 
-void Delaunay2D::generate(Mesh<2> &mesh)
+void Delaunay2D::generate(Mesh<2, 2> &mesh)
 {
-   npts = mesh.points->size();
+   npts = mesh.getNumPoints();
    if (npts < 3)
-      throw logic_error("There is no mesh for only two points");
+      throw logic_error("There is no grid for only two points");
    ntri = 0;
    ntree = 0;
    ntreemax = 10 * npts + 1000;
    triangles.resize(ntreemax);
    pts.resize(npts + 3);
    perm.resize(npts);
-   mesh.vertices.reserve(npts);
    linmap.reserve(6 * npts + 12);
    trimap.reserve(2 * npts + 6);
-   double x1 = (*mesh.points)[0][0];
+   const Vector2d& p = mesh.getPoint(0);
+   double x1 = p[0];
    double xh = x1;
-   double y1 = (*mesh.points)[0][1];
+   double y1 = p[1];
    double yh = y1;
 
    mostleftbottom = 0;
    for (int i = 0; i < npts; i++) {
-      pts[i] = (*mesh.points)[i];
-      mesh.vertices.push_back(make_unique<Vertex<2>>(Vertex<2>(&mesh, i, i)));
+      const Vector2d& p = mesh.getPoint(i);
+      mesh.getOrCreateVertexByID(i);
+      pts[i] = p;
       perm[i] = i;
-      const double xdiff = (*mesh.points)[i][0] - x1;
-      const bool ylower = (*mesh.points)[i][1] < y1;
+      const double xdiff = p[0] - x1;
+      const bool ylower = p[1] < y1;
       if (ylower)
-         y1 = (*mesh.points)[i][1];
+         y1 = p[1];
       if (abs(xdiff) <= epsilon) {
          if (ylower)
             mostleftbottom = i;
       } else if (xdiff < 0.0) {
-         x1 = (*mesh.points)[i][0];
+         x1 = p[0];
          mostleftbottom = i;
       }
-      xh = max(xh, (*mesh.points)[i][0]);
-      yh = max(yh, (*mesh.points)[i][1]);
+      xh = max(xh, p[0]);
+      yh = max(yh, p[1]);
    }
 
-   calcHull();
+   //calcHull();
 
    delx = xh - x1;
    dely = yh - y1;
@@ -208,32 +201,30 @@ void Delaunay2D::generate(Mesh<2> &mesh)
    for (int i = 0; i < npts; i++)
       insertPoint(perm[i]);
 
-   mesh.edges.reserve(linmap.size());
-   mesh.faces.reserve(trimap.size());
+   vector<uint8_t> nneibours;
    for (int i = 0; i < ntree; i++) {
       if (triangles[i].stat > 0) {
          if (triangles[i].p[0] >= npts || triangles[i].p[1] >= npts || triangles[i].p[2] >= npts) {
             triangles[i].stat = -1;
             ntri--;
          } else {
-            Edge<2>* e1 = getOrCreateEdge(mesh, triangles[i].p[1], triangles[i].p[2]);
-            Edge<2>* e2 = getOrCreateEdge(mesh, triangles[i].p[2], triangles[i].p[0]);
-            Edge<2>* e3 = getOrCreateEdge(mesh, triangles[i].p[0], triangles[i].p[1]);
-            getOrCreateFace(mesh, e1, e2, e3);
+            Edge<2>* e1 = mesh.getOrCreateEdge(triangles[i].p[1], triangles[i].p[2]);
+            Edge<2>* e2 = mesh.getOrCreateEdge(triangles[i].p[2], triangles[i].p[0]);
+            Edge<2>* e3 = mesh.getOrCreateEdge(triangles[i].p[0], triangles[i].p[1]);
+            mesh.getOrCreateFace(e1, e2, e3);
+            const size_t maxid = max(e1->getID(), max(e2->getID(), e3->getID()));
+            if (maxid >= nneibours.size())
+               nneibours.resize(maxid + 1, 0);
+            nneibours[e1->getID()]++;
+            nneibours[e2->getID()]++;
+            nneibours[e3->getID()]++;
          }
       }
    }
-}
-
-/*double Delaunay2D::interpolate(const Vector2d* p, const std::vector<double>& fnvals, double defval) const
-{
-
-}*/
-
-void Delaunay2D::getFaces(vector<Triangle> &f) const
-{
-   /*f.resize(faces.size());
-   copy(faces.begin(), faces.end(), f.begin());*/
+   Mesh<2, 1>* hull = mesh.getHull();
+   for (size_t i = 0; i < nneibours.size(); i++)
+      if (nneibours[i] == 1)
+         hull->getOrCreateEdgeByID(i);
 }
 
 void Delaunay2D::insertPoint(int r)
@@ -247,11 +238,8 @@ void Delaunay2D::insertPoint(int r)
       pts[r][0] += fuzz * delx * (RandomHash::doub(jran++) - 0.5);
       pts[r][1] += fuzz * dely * (RandomHash::doub(jran++) - 0.5);
    }
-   if (i == 3) {
-      cout << "Points degenerated even after fuzzing" << endl;
-      cout.flush();
-      throw ("Points degenerated even after fuzzing");
-   }
+   if (i == 3)
+      throw invalid_argument("Points degenerated even after fuzzing");
    int ntask = 0;
    i = triangles[tidx].p[0];
    int j = triangles[tidx].p[1];
@@ -324,7 +312,6 @@ double Delaunay2D::inCircle(const Vector2d& d, const Vector2d& a, const Vector2d
    return (sqr(cc.getRadius()) - radd);
 }
 
-
 int Delaunay2D::whichContainsPoint(const Vector2d& p, int strict)
 {
    int k = 0;
@@ -356,11 +343,8 @@ int Delaunay2D::storeTriangle(int a, int b, int c)
    linmap[linhash(make_tuple(b, c))] = a;
    linmap[linhash(make_tuple(c, a))] = b;
    linmap[linhash(make_tuple(a, b))] = c;
-   if (++ntree == ntreemax) {
-      cout << "Faces list size is too small" << endl;
-      cout.flush();
-      throw ("Faces list size is too small");
-   }
+   if (++ntree == ntreemax)
+      throw overflow_error("Faces list size is too small");
    ntri++;
    return (ntree - 1);
 }
@@ -368,11 +352,8 @@ int Delaunay2D::storeTriangle(int a, int b, int c)
 void Delaunay2D::eraseTriangle(int a, int b, int c, int d0, int d1, int d2)
 {
    const auto it = trimap.find(trihash(make_tuple(a, b, c)));
-   if (it == trimap.end()) {
-      cout << "Non existent triangle" << endl;
-      cout.flush();
-      throw ("Non existent triangle");
-   }
+   if (it == trimap.end())
+      throw range_error("Non existent triangle");
    const int i = it->second;
    triangles[i].d[0] = d0;
    triangles[i].d[1] = d1;
