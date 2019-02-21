@@ -45,6 +45,12 @@ Vertex<Dim>* Mesh<Dim, 0>::getVertex(size_t idx) const
 }
 
 template<uint Dim>
+size_t Mesh<Dim, 0>::getVertexID(size_t idx) const
+{
+   return refvertices[idx];
+}
+
+template<uint Dim>
 Vertex<Dim>* Mesh<Dim, 0>::getVertexByID(size_t id) const
 {
    if (!binary_search(refvertices.begin(), refvertices.end(), id))
@@ -82,6 +88,8 @@ Mesh<Dim, 1>::Mesh(vector<Matrix<double, Dim, 1>>* points) : Mesh<Dim, 0>(points
    edges = edges_owner.get();
    vhash2id_owner = make_unique<unordered_map<ullong, size_t>>();
    vhash2id = vhash2id_owner.get();
+   vertex2edge_owner = make_unique<unordered_multimap<size_t, Edge<Dim>*>>();
+   vertex2edge = vertex2edge_owner.get();
    hull = make_unique<Mesh<Dim, 0>>(this);
 }
 
@@ -150,8 +158,8 @@ Edge<Dim> *Mesh<Dim, 1>::getOrCreateEdge(size_t vid1, size_t vid2)
          edges->push_back(make_unique<Edge<Dim>>(Edge<Dim>({v1, v2}, id)));
          edge = edges->back().get();
          (*vhash2id)[key] = id;
-         vertex2edge.insert({vid1, edge});
-         vertex2edge.insert({vid2, edge});
+         vertex2edge->insert(make_pair(vid1, edge));
+         vertex2edge->insert(make_pair(vid2, edge));
       } else
          edge = (*edges)[it->second].get();
    } else
@@ -175,12 +183,25 @@ Mesh<Dim, 0>* Mesh<Dim, 1>::getHull() const
 }
 
 template<uint Dim>
+void Mesh<Dim, 1>::getEdgesOfVertex(size_t idx, vector<Edge<Dim>*>& edges) const
+{
+   if (idx >= Mesh<Dim, 0>::refvertices.size())
+      throw out_of_range("Vertex index out of range");
+   const auto range = vertex2edge->equal_range(Mesh<Dim, 0>::refvertices[idx]);
+   //copy(range.first, range.second, back_inserter(edges));
+}
+
+template<uint Dim>
 Mesh<Dim, 2>::Mesh(vector<Matrix<double, Dim, 1>>* points) : Mesh<Dim, 1>(points)
 {
    faces_owner = make_unique<vector<unique_ptr<Face<Dim>>>>();
    faces = faces_owner.get();
    ehash2id_owner = make_unique<unordered_map<ullong, size_t>>();
    ehash2id = ehash2id_owner.get();
+   vertex2face_owner = make_unique<unordered_multimap<size_t, Face<Dim>*>>();
+   vertex2face = vertex2face_owner.get();
+   edge2face_owner = make_unique<unordered_multimap<size_t, Face<Dim>*>>();
+   edge2face = edge2face_owner.get();
    hull = make_unique<Mesh<Dim, 1>>(this);
 }
 
@@ -250,12 +271,25 @@ Face<Dim> *Mesh<Dim, 2>::getOrCreateFace(Edge<Dim>* e1, Edge<Dim>* e2, Edge<Dim>
       faces->push_back(make_unique<Face<Dim>>(Face<Dim>({e1, e2, e3}, id)));
       face = faces->back().get();
       (*ehash2id)[key] = id;
+      for (size_t iv = 0; iv < face->getNumVertices(); iv++)
+         vertex2face->insert(make_pair((*face)[iv], face));
+      edge2face->insert(make_pair(e1->getID(), face));
+      edge2face->insert(make_pair(e2->getID(), face));
+      edge2face->insert(make_pair(e3->getID(), face));
    } else
       face = (*faces)[it->second].get();
    const size_t id = face->getID();
    if (!binary_search(reffaces.begin(), reffaces.end(), id))
       Mesh<Dim, 0>::insertSorted(reffaces, id);
    return face;
+}
+
+template<uint Dim>
+pair<typename unordered_multimap<size_t, Face<Dim> *>::const_iterator,
+     typename unordered_multimap<size_t, Face<Dim> *>::const_iterator>
+Mesh<Dim, 2>::getFacesOfEdge(Edge<Dim> *edge) const
+{
+   return edge2face->equal_range(edge->getID());
 }
 
 template<uint Dim>
@@ -288,6 +322,19 @@ size_t Mesh<3, 3>::getNumCells() const
 {
    return cells.size();
 }
+
+/*template<uint Dim, uint TopDim>
+double Boundary<Dim, TopDim>::orientation(const Vector2d &p,
+                                          const Vector2d &q,
+                                          const Vector2d &i)
+{
+   const Vector2d pq = q - p;
+   const Vector2d pi = i - p;
+   const double o = pq(0) * pi(1) - pq(1) * pi(0);
+   if (abs(o) > Boundary<Dim, TopDim>::epsilon)
+      return o;
+   return 0.0;
+}*/
 
 template class Mesh<0, 0>;
 template class Mesh<1, 0>;

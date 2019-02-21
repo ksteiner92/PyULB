@@ -1,8 +1,14 @@
 //#pragma SWIG nowarn=315
+#define decltype(auto) // \
+void ignore_me();
+%ignore ignore_me;
 %{
 #include <type_traits>
 #include "mesh.h"
+
+void ignore_me() {}
 %}
+
 
 %include <std_array.i>
 %include <std_vector.i>
@@ -54,18 +60,23 @@
 %template(FacetsFace3D) std::array<Edge<3>, 3>;
 %template(FacetsCell3D) std::array<Face<3>, 4>;
 
+%ignore getFacesOfEdge;
+
 %template(Mesh0D) Mesh<0, 0>;
 %template(Mesh10D) Mesh<1, 0>;
 %template(Mesh20D) Mesh<2, 0>;
 %template(Mesh30D) Mesh<3, 0>;
 
 %template(Mesh11D) Mesh<1, 1>;
-
 %template(Mesh21D) Mesh<2, 1>;
+%template(Mesh21DList) std::vector<Mesh<2, 1>*>;
 %template(Mesh2D) Mesh<2, 2>;
 
 %template(Mesh31D) Mesh<3, 1>;
 %template(Mesh32D) Mesh<3, 2>;
+%extend Mesh<2, 1> {
+   %template(getOrCreatePoint2DAttributeOnEdge) getOrCreateAttributeOnEdge<Eigen::Matrix<double, 2, 1>>;
+}
 %extend Mesh<2, 2> {
    %template(getOrCreateDoubleAttributeOnVertex) getOrCreateAttributeOnVertex<double>;
    %template(getOrCreateIntListAttributeOnVertex) getOrCreateAttributeOnVertex<std::vector<int>>;

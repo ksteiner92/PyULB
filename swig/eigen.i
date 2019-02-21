@@ -299,8 +299,10 @@
 // Out: & (not yet implemented)
 %typemap(out, fragment="Eigen_Fragments") CLASS &
 {
-  PyErr_SetString(PyExc_ValueError, "The output typemap for non-const reference is not yet implemented. Please report this problem to the developer.");
-  SWIG_fail;
+  if (!ConvertFromEigenToNumPyMatrix<CLASS >(&$result, $1))
+    SWIG_fail;
+  //PyErr_SetString(PyExc_ValueError, "The output typemap for non-const reference is not yet implemented. Please report this problem to the developer.");
+  //SWIG_fail;
 }
 // Out: const* (not yet implemented)
 %typemap(out, fragment="Eigen_Fragments") CLASS const*

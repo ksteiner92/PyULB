@@ -7,6 +7,7 @@
 
 #include "delauny.h"
 #include "utils.h"
+#include "logger.h"
 
 using namespace std;
 using namespace Eigen;
@@ -198,9 +199,17 @@ void Delaunay2D::generate(Mesh<2, 2> &mesh)
    storeTriangle(npts, npts + 1, npts + 2);
    for (int i = npts; i > 0; i--)
       swap(perm[i - 1], perm[RandomHash::int64(jran++) % i]);
-   for (int i = 0; i < npts; i++)
+   LOG_T(INFO) << "Meshing ..." << LogFlags::ENDL;
+   ProgressBar progress;
+   progress.start(npts);
+   for (int i = 0; i < npts; i++) {
       insertPoint(perm[i]);
+      progress.update(i);
+   }
+   progress.stop();
 
+   LOG_T(INFO) << "Storing mesh information ..." << LogFlags::ENDL;
+   progress.start(ntree);
    vector<uint8_t> nneibours;
    for (int i = 0; i < ntree; i++) {
       if (triangles[i].stat > 0) {
@@ -220,7 +229,10 @@ void Delaunay2D::generate(Mesh<2, 2> &mesh)
             nneibours[e3->getID()]++;
          }
       }
+      progress.update(i);
    }
+   progress.stop();
+   LOG_T(INFO) << "Storing hull information ..." << LogFlags::ENDL;
    Mesh<2, 1>* hull = mesh.getHull();
    for (size_t i = 0; i < nneibours.size(); i++)
       if (nneibours[i] == 1)
