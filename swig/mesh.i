@@ -12,6 +12,7 @@ void ignore_me() {}
 
 %include <std_array.i>
 %include <std_vector.i>
+%include <stdint.i>
 %include "attributes.i"
 %include "mesh.h"
 
@@ -76,6 +77,9 @@ void ignore_me() {}
 %template(Mesh32D) Mesh<3, 2>;
 %extend Mesh<2, 1> {
    %template(getOrCreatePoint2DAttributeOnEdge) getOrCreateAttributeOnEdge<Eigen::Matrix<double, 2, 1>>;
+   %template(getOrCreatePoint2DAttributeOnVertex) getOrCreateAttributeOnVertex<Eigen::Matrix<double, 2, 1>>;
+   %template(getOrCreateIntAttributeOnVertex) getOrCreateAttributeOnVertex<int>;
+   %template(getOrCreateUInt8AttributeOnVertex) getOrCreateAttributeOnVertex<uint8_t>;
 }
 %extend Mesh<2, 2> {
    %template(getOrCreateDoubleAttributeOnVertex) getOrCreateAttributeOnVertex<double>;

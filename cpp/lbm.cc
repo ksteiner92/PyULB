@@ -2,6 +2,8 @@
 // Created by klaus on 20.01.19.
 //
 
+#include <unordered_set>
+
 #include "eigen.h"
 #include "lbm.h"
 #include "logger.h"
@@ -24,82 +26,156 @@ T LatticeBoltzmann2D::interpolateVertexAttributeOnSimplex(Simplex<2, SimplexDim>
    return val / ((T) (SimplexDim + 1));
 }
 
-double LatticeBoltzmann2D::getEquilibriumF_i(size_t i, size_t t) const
+void LatticeBoltzmann2D::init()
 {
-   double rho = 0.0;
+   const size_t nvertices = mesh->getNumVertices();
+
+   LOG_T(INFO) << "Initializing ..." << LogFlags::ENDL;
+   ProgressBar progress;
+   progress.start(nvertices);
+
+   const vector<Vector2d>& u_0 = u->getValue(0);
+   if (f->getSize() == 0)
+      f->addValue(vector<Matrix<double, 9, 1>>(nvertices, Matrix<double, 9, 1>::Zero()));
+   vector<Matrix<double, 9, 1>> &f_0 = f->getValue(0);
+   if (rho->getSize() == 0)
+      rho->addValue(vector<double>(nvertices, 1.0));
+   vector<double>& rho_0 = rho->getValue(0);
+   if (fe->getSize() == 0)
+      fe->addValue(vector<Matrix<double, 9, 1>>(nvertices));
+   vector<Matrix<double, 9, 1>>& fe_0 = fe->getValue(0);
+   const double epsilon = 1.0e-6;
+   size_t done = 0;
+#ifdef _OPENMP
+#pragma omp parallel for shared(progress), schedule(dynamic)
+#endif
+   for (size_t iP = 0; iP < nvertices; iP++) {
+      const Vector2d &u = u_0[iP];
+      const Matrix<double, 9, 1> cu = betac_i * u;
+      const Matrix<double, 9, 1> cusqr = 0.5 * (cu.cwiseProduct(cu).array() - u.squaredNorm() / beta).matrix();
+      double rho_pre = rho_0[iP];
+      Matrix<double, 9, 1> &f = f_0[iP];
+      double& rho = rho_0[iP];
+      Matrix<double, 9, 1> &fe = fe_0[iP];
+      /*do {
+         rho_pre = rho;
+         fe = rho * w_i.cwiseProduct(Matrix<double, 9, 1>::Identity() + cu + cusqr);
+         const Matrix<double, 9, 1> fc = f + tau * (fe - f);
+         f = fc + 1.0 / tau * (fe - fc)
+         rho = fc.sum();
+      } while (fabs(rho- rho_pre) < epsilon);*/
+#pragma omp critical
+      {
+         done++;
+         progress.update(done);
+      }
+   }
+   progress.stop();
 }
 
-void LatticeBoltzmann2D::preparingForTime(size_t t, ProgressBar &progress)
+void LatticeBoltzmann2D::update()
 {
+   const size_t t = f->getSize() - 1;
+   const size_t nvertices = mesh->getNumVertices();
+
    LOG_T(INFO) << "[Step " << t + 1 << "] Preparing ..." << LogFlags::ENDL;
-   progress.start(mesh->getNumVertices());
+   ProgressBar progress;
+   progress.start(nvertices);
+
+   const vector<Matrix<double, 9, 1>> &f_t = f->getValue(t);
+   u->addValue(vector<Vector2d>(nvertices, Vector2d::Zero()));
+   vector<Vector2d>& u_t = u->getValue(t);
+   rho->addValue(vector<double>(nvertices));
+   vector<double>& rho_t = rho->getValue(t);
+   fe->addValue(vector<Matrix<double, 9, 1>>(nvertices));
+   vector<Matrix<double, 9, 1>>& fe_t = fe->getValue(t);
 #ifdef _OPENMP
 #pragma omp parallel for shared(progress)
 #endif
-   for (size_t iP = 0; iP < mesh->getNumVertices(); iP++) {
-      vector<Vector2d> &u_P = u->getValue(iP);
-      vector<double> &rho_P = rho->getValue(iP);
-      vector<array<double, 9>> &fe_P = fe->getValue(iP);
-      const vector<array<double, 9>> &f_P = f->getValue(iP);
-      for (uint8_t i = 0; i < 9; i++) {
-         rho_P[t] += f_P[t][i];
-         u_P[t] += c_i[i] * f_P[t][i];
-      }
-      u_P[t] /= rho_P[t];
-      for (uint8_t i = 0; i < 9; i++)
-         fe_P[t][i] = rho_P[t] * w_i[i] * (1.0 + betac_i[i].dot(u_P[t]) +
-                                           0.5 * (sqrbetac_i[i] - 1.0) / (u_P[t].squaredNorm()));
+   for (size_t iP = 0; iP < nvertices; iP++) {
+      const Matrix<double, 9, 1> &f = f_t[iP];
+      const double rho = f.sum();
+      rho_t[iP] = rho;
+      u_t[iP] = c_i * f / rho;
+      const Vector2d &u = u_t[iP];
+      const Matrix<double, 9, 1> cu = betac_i * u;
+      const Matrix<double, 9, 1> cusqr = 0.5 * (cu.cwiseProduct(cu).array() - u.squaredNorm() / beta).matrix();
+      fe_t[iP] = rho * w_i.cwiseProduct(Matrix<double, 9, 1>::Identity() + cu + cusqr);
+#pragma omp critical
       progress.update(iP);
    }
    progress.stop();
 }
 
-void LatticeBoltzmann2D::calculateForTime(double dt, size_t t, ProgressBar &progress)
+void LatticeBoltzmann2D::calculateNextTime(double dt)
 {
-   preparingForTime(t, progress);
+   const size_t t = f->getSize() - 1;
+   const size_t nvertices = mesh->getNumVertices();
+
    LOG_T(INFO) << "[Step " << t + 1 << "] Calculating ..." << LogFlags::ENDL;
+   ProgressBar progress;
+   progress.start(nvertices);
+
    const double dttau = dt / tau;
-   progress.start(mesh->getNumVertices());
+   const vector<Matrix<double, 9, 1>>& f_t = f->getValue(t);
+   const vector<Matrix<double, 9, 1>>& fe_t = fe->getValue(t);
+   f->addValue(vector<Matrix<double, 9, 1>>(nvertices));
+   vector<Matrix<double, 9, 1>>& f_t2 = f->getValue(t + 1);
+
 #ifdef _OPENMP
 #pragma omp parallel for shared(progress)
 #endif
-   for (size_t iP = 0; iP < mesh->getNumVertices(); iP++) {
+   for (size_t iP = 0; iP < nvertices; iP++) {
+      const auto boundaryit = infacing_boundary_c.find(iP);
+      const bool isboundary = boundaryit != infacing_boundary_c.end();
       const auto &S_ik = S[iP];
-      const vector<double> &C_k = C[iP];
-      const vector<double> &rho_P = rho->getValue(iP);
-      const vector<Vector2d> &u_P = u->getValue(iP);
-      const vector<array<double, 9>> &fe_P = fe->getValue(iP);
-      vector<array<double, 9>> &f_P = f->getValue(iP);
-      for (uint8_t i = 0; i < 9; i++)
-         f_P[t + 1][i] -= dttau / 3.0 * (f_P[t][i] - fe_P[t][i]);
-      for (int iK = 0; iK < C_k.size(); iK++) {
-         const vector<array<double, 9>> &f_PK = f->getValue(P_K[iP][iK]);
-         const vector<array<double, 9>> &fe_PK = fe->getValue(P_K[iP][iK]);
-         const vector<Vector2d> &u_PK = u->getValue(P_K[iP][iK]);
-         const vector<double> &rho_PK = rho->getValue(P_K[iP][iK]);
-         for (uint8_t i = 0; i < 9; i++) {
-            f_P[t + 1][i] += dt * S_ik(i, iK) * f_PK[t][i];
-            if (i == iK)
-               f_P[t + 1][i] -= dttau * C_k[iK] * (f_PK[t][i] - fe_PK[t][i]);
+      const vector<double>& C_k = C[iP];
+      const Matrix<double, 9, 1>& f = f_t[iP];
+      Matrix<double, 9, 1>& f2 = f_t2[iP];
+      f2 = f;
+      for (int iK = -1; iK < C_k.size(); iK++) {
+         size_t iv = iP;
+         Matrix<double, 9, 1> C = Matrix<double, 9, 1>::Zero();
+         C(0) = 1.0 / 3.0;
+         Matrix<double, 9, 1> S = Matrix<double, 9, 1>::Zero();
+         if (iK >= 0) {
+            iv = P_K[iP][iK];
+            if (iK < 9)
+               C(iK) = C_k[iK];
+            S = S_ik.col(iK);
+         }
+         const Matrix<double, 9, 1> &fe = fe_t[iv];
+         const Matrix<double, 9, 1> &f_K = f_t[iv];
+         if (!isboundary)
+            f2 += dt*S.cwiseProduct(f_K) - dttau*C.cwiseProduct(f_K - fe);
+         else {
+            const uint8_t infacings = boundaryit->second;
+            for (uint8_t i = 0; i <= 8; i += 2) {
+               if (i > 0) {
+                  const uint8_t mask_odd  = (1 << (i - 2));
+                  const uint8_t mask_even = (1 << (i - 1));
+                  if ((infacings & mask_odd) && !(infacings & mask_even)) {
+                     f2(i) += f(i) + dt*S(i) * f_K(i) - dttau*C(i) * (f_K(i) - fe(i));
+                     f2(i - 1) = f2(i);
+                  } else if (!(infacings & mask_odd) && (infacings & mask_even)) {
+                     f2(i - 1) += f(i - 1) + dt*S(i - 1) * f_K(i - 1) - dttau*C(i - 1) * (f_K(i - 1) - fe(i - 1));
+                     f2(i) = f2(i - 1);
+                  } else {
+                     const double fi1 = dt*S(i) * f_K(i) - dttau*C(i) * (f_K(i) - fe(i));
+                     const double fi2 = dt*S(i - 1) * f_K(i - 1) - dttau*C(i - 1) * (f_K(i - 1) - fe(i - 1));
+                     const double fi = 0.5 * (f(i) + fi1 + f(i - 1) + fi2);
+                     f2(i) = fi;
+                     f2(i - 1) = fi;
+                  }
+               } else
+                  f2(i) += dt*S(i) * f_K(i) - dttau*C(i) * (f_K(i) - fe(i));
+            }
          }
       }
+#pragma omp critical
       progress.update(iP);
    }
    progress.stop();
-}
-
-void LatticeBoltzmann2D::calculate(double dt, size_t nsteps)
-{
-   ProgressBar progress;
-   for (size_t iP = 0; iP < mesh->getNumVertices(); iP++) {
-      f->getValue(iP).resize(nsteps, {1.0});
-      fe->getValue(iP).resize(nsteps);
-      u->getValue(iP).resize(nsteps, Vector2d::Zero());
-      rho->getValue(iP).resize(nsteps, 0.0);
-   }
-   for (size_t t = 0; t < nsteps - 1; t++)
-      calculateForTime(dt, t, progress);
-   preparingForTime(nsteps - 1, progress);
 }
 
 double LatticeBoltzmann2D::calcPivot(const Vector2d &P,
@@ -123,18 +199,6 @@ double LatticeBoltzmann2D::calcPivot(const Vector2d &P,
    return triangleArea(P, E1, C) + triangleArea(P, E2, C);
 }
 
-double LatticeBoltzmann2D::orientation(const Vector2d &p,
-                                       const Vector2d &q,
-                                       const Vector2d &i)
-{
-   const Vector2d pq = q - p;
-   const Vector2d pi = i - p;
-   const double o = pq(0) * pi(1) - pq(1) * pi(0);
-   if (abs(o) > LatticeBoltzmann2D::epsilon)
-      return o;
-   return 0.0;
-}
-
 LatticeBoltzmann2D::LatticeBoltzmann2D(Mesh<2, 2>* mesh, const vector<Mesh<2, 1>*>& boundaries, double tau, double c_s)
    : mesh(mesh), tau(tau), c_s(c_s), beta(1.0 / (c_s * c_s))
 {
@@ -144,29 +208,42 @@ LatticeBoltzmann2D::LatticeBoltzmann2D(Mesh<2, 2>* mesh, const vector<Mesh<2, 1>
    auto E_i = mesh->getOrCreateAttributeOnEdge<Vector2d>("E_i");
    auto AttrN_K = mesh->getOrCreateAttributeOnVertex<vector<Vector2d>>("N_K");
    auto AttrP_K = mesh->getOrCreateAttributeOnVertex<vector<int>>("P_K");
-   f = mesh->getOrCreateAttributeOnVertex<vector<array<double, 9>>>("f");
-   fe = mesh->getOrCreateAttributeOnVertex<vector<array<double, 9>>>("fe");
-   u = mesh->getOrCreateAttributeOnVertex<vector<Vector2d>>("u");
-   rho = mesh->getOrCreateAttributeOnVertex<vector<double>>("rho");
 
-   P_K.resize(mesh->getNumVertices());
-   vector<vector<Vector2d>> N_K(mesh->getNumVertices());
-   vector<vector<double>> V_K(mesh->getNumVertices());
-   vector<double> V_P(mesh->getNumVertices(), 0.0);
-   array<Vector2d, 3> E;
-   array<Vector2d, 3> P;
-   array<int, 3> Pidx;
-   LOG_T(INFO) << "Calculate neighbour relations ..." << LogFlags::ENDL;
-   ProgressBar progress;
-   progress.start(mesh->getNumFaces());
+   f = mesh->getOrCreateListAttributeOnVertex<vector<Matrix<double, 9, 1>>>("f");
+   fe = mesh->getOrCreateListAttributeOnVertex<vector<Matrix<double, 9, 1>>>("fe");
+   u = mesh->getOrCreateListAttributeOnVertex<vector<Vector2d>>("u");
+   rho = mesh->getOrCreateListAttributeOnVertex<vector<double>>("rho");
 
-   infacing_boundary_c.resize(boundaries.size());
+   const double c = 1.0 / sqrt(2.0);
+   c_i.col(0) <<  0.0,  0.0;
+   c_i.col(1) <<  1.0,  0.0;
+   c_i.col(2) <<  0.0,  1.0;
+   c_i.col(3) << -1.0,  0.0;
+   c_i.col(4) <<  0.0, -1.0;
+   c_i.col(5) <<  c,  c;
+   c_i.col(6) << -c,  c;
+   c_i.col(7) << -c, -c;
+   c_i.col(8) <<  c, -c;
+
+   const double w1 = 1.0 / 9.0;
+   const double w2 = 1.0 / 36.0;
+   w_i << 4.0 / 9.0, w1, w1, w1, w1, w2, w2, w2, w2;
+   betac_i = (c_i * beta).transpose();
+
+   const size_t nvertices = mesh->getNumVertices();
+
+   LOG_T(INFO) << "Calculate boundary conditions ..." << LogFlags::ENDL;
+   unordered_map<size_t, Vector2d> vertex_normals;
+   unordered_set<size_t> processed_edges;
    for (size_t ib = 0; ib < boundaries.size(); ib++) {
       Mesh<2, 1>* boundary = boundaries[ib];
-      auto Nb = boundary->getOrCreateAttributeOnEdge<Vector2d>("Nb");
-      infacing_boundary_c[ib].resize(boundary->getNumEdges(), 0);
+      auto Nb = boundary->getOrCreateAttributeOnVertex<Vector2d>("Nb");
+      auto infaceing = boundary->getOrCreateAttributeOnVertex<uint8_t>("infaceing");
       for (size_t ie = 0; ie < boundary->getNumEdges(); ie++) {
          Edge<2> *edge = boundary->getEdge(ie);
+         if (processed_edges.find(edge->getID()) != processed_edges.end())
+            continue;
+         processed_edges.insert(edge->getID());
          Face<2>* face = mesh->getFacesOfEdge(edge).first->second;
          const Vector2d& B1 = boundary->getPoint((*edge)[0]);
          const Vector2d& B2 = boundary->getPoint((*edge)[1]);
@@ -184,11 +261,34 @@ LatticeBoltzmann2D::LatticeBoltzmann2D(Mesh<2, 2>* mesh, const vector<Mesh<2, 1>
          Vector2d n(e[1], -e[0]);
          if (n.dot(t) > 0.0)
             n *= -1.0;
-         for (uint16_t i = 1; i < c_i.size(); i++)
-            infacing_boundary_c[ib][ie] |= (1 << (i - 1));
-         Nb->setValue(ie, n);
+         for (size_t iv = 0; iv < 2; iv++) {
+            const size_t vid = (*edge)[iv];
+            const auto nit = vertex_normals.find(vid);
+            if (nit != vertex_normals.end()) {
+               Vector2d vnormal = n + nit->second;
+               vnormal /= vnormal.norm();
+               for (uint8_t i = 1; i < c_i.size(); i++)
+                  if (vnormal.dot(c_i.col(i)) < 0)
+                     infacing_boundary_c[vid] |= (1 << (i - 1));
+               const size_t vidx = boundary->getVertexIdx(vid);
+               Nb->setValue(vidx, vnormal);
+               infaceing->setValue(vidx, infacing_boundary_c[vid]);
+            } else
+               vertex_normals[vid] = n;
+         }
       }
    }
+
+   LOG_T(INFO) << "Calculate neighbour relations ..." << LogFlags::ENDL;
+   ProgressBar progress;
+   progress.start(mesh->getNumFaces());
+   P_K.resize(nvertices);
+   vector<vector<Vector2d>> N_K(nvertices);
+   vector<vector<double>> V_K(nvertices);
+   vector<double> V_P(nvertices, 0.0);
+   array<Vector2d, 3> E;
+   array<Vector2d, 3> P;
+   array<int, 3> Pidx;
    for (size_t i = 0; i < mesh->getNumFaces(); i++) {
       // Calculate face center point
       const Face<2>* face = mesh->getFace(i);
@@ -247,36 +347,18 @@ LatticeBoltzmann2D::LatticeBoltzmann2D(Mesh<2, 2>* mesh, const vector<Mesh<2, 1>
    }
    progress.stop();
 
-   const double c = 1.0 / sqrt(2.0);
-   c_i[0] << 0.0, 0.0;
-   c_i[1] << 1.0, 0.0;
-   c_i[2] << 0.0, 1.0;
-   c_i[3] << -1.0, 0.0;
-   c_i[4] << 0.0, -1.0;
-   c_i[5] << c, c;
-   c_i[6] << -c, c;
-   c_i[7] << -c, -c;
-   c_i[8] << c, -c;
-   const double w1 = 1.0 / 9.0;
-   const double w2 = 1.0 / 36.0;
-   w_i = {4.0 / 9.0, w1, w1, w1, w1, w2, w2, w2, w2};
-   for (size_t i = 0; i < 9; i++) {
-      betac_i[i] = c_i[i] / c_s;
-      sqrbetac_i[i] = betac_i[i].squaredNorm();
-   }
-
    LOG_T(INFO) << "Calculate streaming and collision matrices ..." << LogFlags::ENDL;
-   progress.start(mesh->getNumVertices());
-   S.resize(mesh->getNumVertices());
-   C.resize(mesh->getNumVertices());
-   for (size_t iv = 0; iv < mesh->getNumVertices(); iv++) {
+   progress.start(nvertices);
+   S.resize(nvertices);
+   C.resize(nvertices);
+   for (size_t iv = 0; iv < nvertices; iv++) {
       const int n = P_K[iv].size();
       Matrix<double, 9, Dynamic> S_ik(9, n);
       C[iv].resize(n);
       const double V = V_P[iv];
       for (int i = 0; i < 9; i++) {
          for (int k = 0; k < n; k++) {
-            S_ik(i, k) =  c_i[i].dot(N_K[iv][k]) / V;
+            S_ik(i, k) =  c_i.col(i).dot(N_K[iv][k]) / V;
             if (i == 0)
                C[iv][k] = V_K[iv][k] / (3.0 * V);
          }

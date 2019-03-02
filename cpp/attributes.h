@@ -23,6 +23,43 @@ protected:
 };
 
 template<class T>
+class ListAttribute : public BaseAttribute
+{
+public:
+   ListAttribute() : BaseAttribute(0) {}
+
+   const T& getValue(std::size_t idx) const
+   {
+      if (idx >= values.size())
+         throw std::out_of_range("Index out of range");
+      return values[idx];
+   }
+
+   T& getValue(std::size_t idx)
+   {
+      if (idx >= values.size())
+         throw std::out_of_range("Index out of range");
+      return values[idx];
+   }
+
+   void setValue(std::size_t idx, const T &value)
+   {
+      if (idx >= values.size())
+         throw std::out_of_range("Index out of range");
+      values[idx] = value;
+   }
+
+   void addValue(const T& value)
+   {
+      values.push_back(value);
+      size = values.size();
+   }
+
+private:
+   std::vector<T> values;
+};
+
+template<class T>
 class Attribute : public BaseAttribute
 {
 public:
@@ -32,11 +69,8 @@ public:
 
    void setValue(std::size_t idx, const T &value)
    {
-      if (idx >= values.size()) {
-         std::cout << "Index out of bounds" << std::endl;
-         std::cout.flush();
+      if (idx >= values.size())
          throw std::out_of_range("Index out of range");
-      }
       values[idx] = value;
    }
 
@@ -48,6 +82,13 @@ public:
    }
 
    T& getValue(std::size_t idx)
+   {
+      if (idx >= values.size())
+         throw std::out_of_range("Index out of range");
+      return values[idx];
+   }
+
+   T getValueCopy(std::size_t idx) const
    {
       if (idx >= values.size())
          throw std::out_of_range("Index out of range");

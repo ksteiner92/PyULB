@@ -17,6 +17,78 @@ Mesh<Dim, 0>::Mesh(vector<Matrix<double, Dim, 1>>* points) : points(points)
 }
 
 template<uint Dim>
+std::size_t Mesh<Dim, 0>::getNumBodies() const
+{
+   return getNumVertices();
+}
+
+template<uint Dim>
+MeshElement* Mesh<Dim, 0>::getBody(std::size_t idx) const
+{
+   return getVertex(idx);
+}
+
+template<uint Dim>
+MeshElement* Mesh<Dim, 0>::getBodyByID(std::size_t id) const
+{
+   return getVertexByID(id);
+}
+
+template<uint Dim>
+std::size_t Mesh<Dim, 0>::getNumFacets() const
+{
+   throw std::logic_error("Mesh with 0 topology does not have facets");
+}
+
+template<uint Dim>
+MeshElement* Mesh<Dim, 0>::getFacet(std::size_t idx) const
+{
+   throw std::logic_error("Mesh with 0 topology does not have facets");
+}
+
+template<uint Dim>
+MeshElement* Mesh<Dim, 0>::getFacetByID(std::size_t id) const
+{
+   throw std::logic_error("Mesh with 0 topology does not have facets");
+}
+
+template<uint Dim>
+std::size_t Mesh<Dim, 0>::getNumRidges() const
+{
+   throw std::logic_error("Mesh with 0 topology does not have ridges");
+}
+
+template<uint Dim>
+MeshElement* Mesh<Dim, 0>::getRidge(std::size_t idx) const
+{
+   throw std::logic_error("Mesh with 0 topology does not have ridges");
+}
+
+template<uint Dim>
+MeshElement* Mesh<Dim, 0>::getRidgeByID(std::size_t id) const
+{
+   throw std::logic_error("Mesh with 0 topology does not have ridges");
+}
+
+template<uint Dim>
+std::size_t Mesh<Dim, 0>::getNumPeaks() const
+{
+   throw std::logic_error("Mesh with 0 topology does not have peaks");
+}
+
+template<uint Dim>
+MeshElement* Mesh<Dim, 0>::getPeak(std::size_t idx) const
+{
+   throw std::logic_error("Mesh with 0 topology does not have peaks");
+}
+
+template<uint Dim>
+MeshElement* Mesh<Dim, 0>::getPeakByID(std::size_t id) const
+{
+   throw std::logic_error("Mesh with 0 topology does not have peaks");
+}
+
+template<uint Dim>
 const Matrix<double, Dim, 1>& Mesh<Dim, 0>::getPoint(size_t idx) const
 {
    if (idx >= points->size())
@@ -51,6 +123,15 @@ size_t Mesh<Dim, 0>::getVertexID(size_t idx) const
 }
 
 template<uint Dim>
+size_t Mesh<Dim, 0>::getVertexIdx(size_t id) const
+{
+   const auto it = binary_find(refvertices.begin(), refvertices.end(), id);
+   if (it == refvertices.end())
+      throw logic_error("Vertex not found");
+   return distance(refvertices.begin(), it);
+}
+
+template<uint Dim>
 Vertex<Dim>* Mesh<Dim, 0>::getVertexByID(size_t id) const
 {
    if (!binary_search(refvertices.begin(), refvertices.end(), id))
@@ -82,6 +163,13 @@ size_t Mesh<Dim, 0>::getNumVertices() const
 }
 
 template<uint Dim>
+IMesh* Mesh<Dim, 0>::getHull() const
+{
+   throw logic_error("Mesh of 0 topological dimension has no hull");
+   return nullptr;
+}
+
+template<uint Dim>
 Mesh<Dim, 1>::Mesh(vector<Matrix<double, Dim, 1>>* points) : Mesh<Dim, 0>(points)
 {
    edges_owner = make_unique<vector<unique_ptr<Edge<Dim>>>>();
@@ -91,6 +179,78 @@ Mesh<Dim, 1>::Mesh(vector<Matrix<double, Dim, 1>>* points) : Mesh<Dim, 0>(points
    vertex2edge_owner = make_unique<unordered_multimap<size_t, Edge<Dim>*>>();
    vertex2edge = vertex2edge_owner.get();
    hull = make_unique<Mesh<Dim, 0>>(this);
+}
+
+template<uint Dim>
+std::size_t Mesh<Dim, 1>::getNumBodies() const
+{
+   return getNumEdges();
+}
+
+template<uint Dim>
+MeshElement* Mesh<Dim, 1>::getBody(std::size_t idx) const
+{
+   return getEdge(idx);
+}
+
+template<uint Dim>
+MeshElement* Mesh<Dim, 1>::getBodyByID(std::size_t id) const
+{
+   return getEdgeByID(id);
+}
+
+template<uint Dim>
+std::size_t Mesh<Dim, 1>::getNumFacets() const
+{
+   return Mesh<Dim, 0>::getNumVertices();
+}
+
+template<uint Dim>
+MeshElement* Mesh<Dim, 1>::getFacet(std::size_t idx) const
+{
+   return Mesh<Dim, 0>::getVertex(idx);
+}
+
+template<uint Dim>
+MeshElement* Mesh<Dim, 1>::getFacetByID(std::size_t id) const
+{
+   return Mesh<Dim, 0>::getVertexByID(id);
+}
+
+template<uint Dim>
+std::size_t Mesh<Dim, 1>::getNumRidges() const
+{
+   throw std::logic_error("Mesh with topological dimension does not have ridges");
+}
+
+template<uint Dim>
+MeshElement* Mesh<Dim, 1>::getRidge(std::size_t idx) const
+{
+   throw std::logic_error("Mesh with topological dimension 1 does not have ridges");
+}
+
+template<uint Dim>
+MeshElement* Mesh<Dim, 1>::getRidgeByID(std::size_t id) const
+{
+   throw std::logic_error("Mesh with topological dimension 1 does not have ridges");
+}
+
+template<uint Dim>
+std::size_t Mesh<Dim, 1>::getNumPeaks() const
+{
+   throw std::logic_error("Mesh with topological dimension 1 does not have peaks");
+}
+
+template<uint Dim>
+MeshElement* Mesh<Dim, 1>::getPeak(std::size_t idx) const
+{
+   throw std::logic_error("Mesh with topological dimension 1 does not have peaks");
+}
+
+template<uint Dim>
+MeshElement* Mesh<Dim, 1>::getPeakByID(std::size_t id) const
+{
+   throw std::logic_error("Mesh with topological dimension 1 does not have peaks");
 }
 
 template<uint Dim>
@@ -132,7 +292,7 @@ Edge<Dim> *Mesh<Dim, 1>::getOrCreateEdgeByID(size_t id)
    if (id < edges->size()) {
       edge = (*edges)[id].get();
       if (!binary_search(refedges.begin(), refedges.end(), id))
-         Mesh<Dim, 0>::insertSorted(refedges, edge->getID());
+         insertSorted(refedges, edge->getID());
       Mesh<Dim, 0>::getOrCreateVertexByID((*edge)[0]);
       Mesh<Dim, 0>::getOrCreateVertexByID((*edge)[1]);
    }
@@ -166,7 +326,7 @@ Edge<Dim> *Mesh<Dim, 1>::getOrCreateEdge(size_t vid1, size_t vid2)
       edge = (*edges)[it->second].get();
    const size_t id = edge->getID();
    if (!binary_search(refedges.begin(), refedges.end(), id))
-      Mesh<Dim, 0>::insertSorted(refedges, id);
+      insertSorted(refedges, id);
    return edge;
 }
 
@@ -177,7 +337,7 @@ size_t Mesh<Dim, 1>::getNumEdges() const
 }
 
 template<uint Dim>
-Mesh<Dim, 0>* Mesh<Dim, 1>::getHull() const
+IMesh* Mesh<Dim, 1>::getHull() const
 {
    return hull.get();
 }
@@ -203,6 +363,78 @@ Mesh<Dim, 2>::Mesh(vector<Matrix<double, Dim, 1>>* points) : Mesh<Dim, 1>(points
    edge2face_owner = make_unique<unordered_multimap<size_t, Face<Dim>*>>();
    edge2face = edge2face_owner.get();
    hull = make_unique<Mesh<Dim, 1>>(this);
+}
+
+template<uint Dim>
+std::size_t Mesh<Dim, 2>::getNumBodies() const
+{
+   return getNumFaces();
+}
+
+template<uint Dim>
+MeshElement* Mesh<Dim, 2>::getBody(std::size_t idx) const
+{
+   return getFace(idx);
+}
+
+template<uint Dim>
+MeshElement* Mesh<Dim, 2>::getBodyByID(std::size_t id) const
+{
+   return getFaceByID(id);
+}
+
+template<uint Dim>
+std::size_t Mesh<Dim, 2>::getNumFacets() const
+{
+   return Mesh<Dim, 1>::getNumEdges();
+}
+
+template<uint Dim>
+MeshElement* Mesh<Dim, 2>::getFacet(std::size_t idx) const
+{
+   return Mesh<Dim, 1>::getEdge(idx);
+}
+
+template<uint Dim>
+MeshElement* Mesh<Dim, 2>::getFacetByID(std::size_t id) const
+{
+   return Mesh<Dim, 1>::getEdgeByID(id);
+}
+
+template<uint Dim>
+std::size_t Mesh<Dim, 2>::getNumRidges() const
+{
+   return Mesh<Dim, 0>::getNumVertices();
+}
+
+template<uint Dim>
+MeshElement* Mesh<Dim, 2>::getRidge(std::size_t idx) const
+{
+   return Mesh<Dim, 0>::getVertex(idx);
+}
+
+template<uint Dim>
+MeshElement* Mesh<Dim, 2>::getRidgeByID(std::size_t id) const
+{
+   return Mesh<Dim, 0>::getVertexByID(id);
+}
+
+template<uint Dim>
+std::size_t Mesh<Dim, 2>::getNumPeaks() const
+{
+   throw std::logic_error("Mesh with topological dimension 2 does not have peaks");
+}
+
+template<uint Dim>
+MeshElement* Mesh<Dim, 2>::getPeak(std::size_t idx) const
+{
+   throw std::logic_error("Mesh with topological dimension 2 does not have peaks");
+}
+
+template<uint Dim>
+MeshElement* Mesh<Dim, 2>::getPeakByID(std::size_t id) const
+{
+   throw std::logic_error("Mesh with topological dimension 2 does not have peaks");
 }
 
 template<uint Dim>
@@ -256,7 +488,7 @@ Face<Dim> *Mesh<Dim, 2>::getOrCreateFace(size_t eid1, size_t eid2, size_t eid3)
       face = (*faces)[it->second].get();
    const size_t id = face->getID();
    if (!binary_search(reffaces.begin(), reffaces.end(), id))
-      Mesh<Dim, 0>::insertSorted(reffaces, id);
+      insertSorted(reffaces, id);
    return face;
 }
 
@@ -280,7 +512,7 @@ Face<Dim> *Mesh<Dim, 2>::getOrCreateFace(Edge<Dim>* e1, Edge<Dim>* e2, Edge<Dim>
       face = (*faces)[it->second].get();
    const size_t id = face->getID();
    if (!binary_search(reffaces.begin(), reffaces.end(), id))
-      Mesh<Dim, 0>::insertSorted(reffaces, id);
+      insertSorted(reffaces, id);
    return face;
 }
 
@@ -299,13 +531,73 @@ size_t Mesh<Dim, 2>::getNumFaces() const
 }
 
 template<uint Dim>
-Mesh<Dim, 1>* Mesh<Dim, 2>::getHull() const
+IMesh* Mesh<Dim, 2>::getHull() const
 {
    return hull.get();
 }
 
 Mesh<3, 3>::Mesh(vector<Matrix<double, 3, 1>>* points) : Mesh<3, 2>(points)
 {
+}
+
+std::size_t Mesh<3, 3>::getNumBodies() const
+{
+   return getNumCells();
+}
+
+MeshElement* Mesh<3, 3>::getBody(std::size_t idx) const
+{
+   return getCell(idx);
+}
+
+MeshElement* Mesh<3, 3>::getBodyByID(std::size_t id) const
+{
+   return getCellByID(id);
+}
+
+std::size_t Mesh<3, 3>::getNumFacets() const
+{
+   return Mesh<3, 2>::getNumFaces();
+}
+
+MeshElement* Mesh<3, 3>::getFacet(std::size_t idx) const
+{
+   return Mesh<3, 2>::getFace(idx);
+}
+
+MeshElement* Mesh<3, 3>::getFacetByID(std::size_t id) const
+{
+   return Mesh<3, 2>::getFaceByID(id);
+}
+
+std::size_t Mesh<3, 3>::getNumRidges() const
+{
+   return Mesh<3, 1>::getNumEdges();
+}
+
+MeshElement* Mesh<3, 3>::getRidge(std::size_t idx) const
+{
+   return Mesh<3, 1>::getEdge(idx);
+}
+
+MeshElement* Mesh<3, 3>::getRidgeByID(std::size_t id) const
+{
+   return Mesh<3, 1>::getEdgeByID(id);
+}
+
+std::size_t Mesh<3, 3>::getNumPeaks() const
+{
+   return Mesh<3, 0>::getNumVertices();
+}
+
+MeshElement* Mesh<3, 3>::getPeak(std::size_t idx) const
+{
+   return Mesh<3, 0>::getVertex(idx);
+}
+
+MeshElement* Mesh<3, 3>::getPeakByID(std::size_t id) const
+{
+   return Mesh<3, 0>::getVertexByID(id);
 }
 
 Cell* Mesh<3, 3>::getCell(size_t idx) const
@@ -316,6 +608,11 @@ Cell* Mesh<3, 3>::getCell(size_t idx) const
       throw out_of_range("Cell index out of range");
    }
    return cells[idx].get();
+}
+
+Cell* Mesh<3, 3>::getCellByID(std::size_t id) const
+{
+   return nullptr;
 }
 
 size_t Mesh<3, 3>::getNumCells() const

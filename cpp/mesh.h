@@ -36,10 +36,14 @@ class IMesher;
 class MeshElement
 {
 public:
-   virtual std::size_t size() const = 0;
+   virtual std::size_t getNumVertices() const = 0;
+
+   virtual std::size_t getID() const = 0;
+
+   virtual std::size_t operator[](std::size_t idx) const = 0;
 };
 
-template<uint Dim, uint SimplexDim>
+template<uint Dim, int SimplexDim>
 class Simplex : public MeshElement
 {
    static_assert(SimplexDim <= Dim, "Simplex dimension has to be smaller or equal than dimension");
@@ -118,12 +122,12 @@ public:
       GetPoints<void, SimplexDim>::get(pts, facets, 0);
    }
 
-   std::size_t getID() const
+   std::size_t getID() const override
    {
       return id;
    }
 
-   int operator[](std::size_t idx) const
+   std::size_t operator[](std::size_t idx) const override
    {
       if (idx >= SimplexDim + 1) {
          std::cout << "Simplex operator[]: Index out of bounds" << std::endl;
@@ -148,14 +152,9 @@ public:
       return facets;
    }
 
-   std::size_t getNumVertices()
+   std::size_t getNumVertices() const override
    {
       return pts.size();
-   }
-
-   std::size_t size() const override
-   {
-      return 0;
    }
 
 protected:
@@ -213,12 +212,53 @@ public:
 
 };
 
+class IMesh
+{
+public:
+   virtual std::size_t getNumVertices() const = 0;
+
+   virtual MeshElement* getVertex(std::size_t idx) const = 0;
+
+   virtual std::size_t getVertexID(std::size_t idx) const = 0;
+
+   virtual std::size_t getVertexIdx(std::size_t id) const = 0;
+
+   virtual MeshElement* getVertexByID(std::size_t id) const = 0;
+
+   virtual std::size_t getNumBodies() const = 0;
+
+   virtual MeshElement* getBody(std::size_t idx) const = 0;
+
+   virtual MeshElement* getBodyByID(std::size_t id) const = 0;
+
+   virtual std::size_t getNumFacets() const = 0;
+
+   virtual MeshElement* getFacet(std::size_t idx) const = 0;
+
+   virtual MeshElement* getFacetByID(std::size_t id) const = 0;
+
+   virtual std::size_t getNumRidges() const = 0;
+
+   virtual MeshElement* getRidge(std::size_t idx) const = 0;
+
+   virtual MeshElement* getRidgeByID(std::size_t id) const = 0;
+
+   virtual std::size_t getNumPeaks() const = 0;
+
+   virtual MeshElement* getPeak(std::size_t idx) const = 0;
+
+   virtual MeshElement* getPeakByID(std::size_t id) const = 0;
+
+   virtual IMesh* getHull() const = 0;
+
+};
+
 template<uint Dim, uint TopDim=Dim>
 class Mesh
 {};
 
 template<uint Dim>
-class Mesh<Dim, 0>
+class Mesh<Dim, 0> : public IMesh
 {
    static_assert(Dim >= 0 && Dim <= 3, "Dimension not supported");
 
@@ -232,21 +272,49 @@ public:
       vertices = mesh->vertices;
    }
 
+   virtual std::size_t getNumBodies() const override;
+
+   virtual MeshElement* getBody(std::size_t idx) const override;
+
+   virtual MeshElement* getBodyByID(std::size_t id) const override;
+
+   virtual std::size_t getNumFacets() const override;
+
+   virtual MeshElement* getFacet(std::size_t idx) const override;
+
+   virtual MeshElement* getFacetByID(std::size_t id) const override;
+
+   virtual std::size_t getNumRidges() const override;
+
+   virtual MeshElement* getRidge(std::size_t idx) const override;
+
+   virtual MeshElement* getRidgeByID(std::size_t id) const override;
+
+   virtual std::size_t getNumPeaks() const override;
+
+   virtual MeshElement* getPeak(std::size_t idx) const override;
+
+   virtual MeshElement* getPeakByID(std::size_t id) const override;
+
    const Eigen::Matrix<double, Dim, 1>& getPoint(std::size_t idx) const;
 
    std::vector<Eigen::Matrix<double, Dim, 1>>* getPoints() const;
 
    std::size_t getNumPoints() const;
 
-   Vertex<Dim>* getVertex(std::size_t idx) const;
+   Vertex<Dim>* getVertex(std::size_t idx) const override;
 
-   std::size_t getVertexID(std::size_t idx) const;
+   std::size_t getVertexID(std::size_t idx) const override;
 
-   Vertex<Dim>* getVertexByID(std::size_t id) const;
+   std::size_t getVertexIdx(std::size_t id) const override;
+
+   Vertex<Dim>* getVertexByID(std::size_t id) const override;
 
    Vertex<Dim>* getOrCreateVertexByID(std::size_t id);
 
-   std::size_t getNumVertices() const;
+   std::size_t getNumVertices() const override;
+
+   virtual IMesh* getHull() const override;
 
    template<class T>
    Attribute<T>* getOrCreateAttributeOnVertex(const std::string &name)
@@ -255,43 +323,51 @@ public:
    }
 
    template<class T>
+   ListAttribute<T>* getOrCreateListAttributeOnVertex(const std::string &name)
+   {
+      return Mesh<Dim, 0>::template getOrCreateAttribute<T, ListAttribute>(name, vertexAttrs, refvertices.size());
+   }
+
+   template<class T>
    Attribute<T>* getOrCreateAttributeOnVertex(const std::string &name, const T& def)
    {
       return Mesh<Dim, 0>::template getOrCreateAttribute<T>(name, vertexAttrs, refvertices.size(), def);
    }
 
-protected:
    template<class T>
-   static inline Attribute<T>* getOrCreateAttribute(const std::string &name,
-                                                    std::unordered_map<std::string, std::unique_ptr<BaseAttribute>>& attrlst,
-                                                    std::size_t size,
-                                                    const T& def)
+   ListAttribute<T>* getOrCreateListAttributeOnVertex(const std::string &name, const T& def)
+   {
+      return Mesh<Dim, 0>::template getOrCreateAttribute<T, ListAttribute>(name, vertexAttrs, refvertices.size(), def);
+   }
+
+protected:
+   template<typename T, template<typename> typename AttibuteType = Attribute>
+   static inline AttibuteType<T> *getOrCreateAttribute(const std::string &name,
+                                                       std::unordered_map<std::string,
+                                                               std::unique_ptr<BaseAttribute>> &attrlst,
+                                                       std::size_t size,
+                                                       const T &def)
    {
       const auto it = attrlst.find(name);
       if (it == attrlst.end()) {
-         attrlst[name] = std::make_unique<Attribute<T>>(size, def);
-         return static_cast<Attribute<T> *>(attrlst[name].get());
+         attrlst[name] = std::make_unique<AttibuteType<T>>(size, def);
+         return static_cast<AttibuteType<T> *>(attrlst[name].get());
       }
-      return static_cast<Attribute<T> *>(it->second.get());
+      return static_cast<AttibuteType<T> *>(it->second.get());
    }
 
-   template<class T>
-   static inline Attribute<T>* getOrCreateAttribute(const std::string &name,
-                                                    std::unordered_map<std::string, std::unique_ptr<BaseAttribute>>& attrlst,
-                                                    std::size_t size)
+   template<typename T, template<typename> typename AttibuteType = Attribute>
+   static inline AttibuteType<T> *getOrCreateAttribute(const std::string &name,
+                                                       std::unordered_map<std::string,
+                                                               std::unique_ptr<BaseAttribute>> &attrlst,
+                                                       std::size_t size)
    {
       const auto it = attrlst.find(name);
       if (it == attrlst.end()) {
          attrlst[name] = std::make_unique<Attribute<T>>(size);
-         return static_cast<Attribute<T> *>(attrlst[name].get());
+         return static_cast<AttibuteType<T> *>(attrlst[name].get());
       }
-      return static_cast<Attribute<T> *>(it->second.get());
-   }
-
-   template<class T>
-   typename std::vector<T>::iterator insertSorted(std::vector<T>& vec, const T& item)
-   {
-      return vec.insert(std::upper_bound(vec.begin(), vec.end(), item), item);
+      return static_cast<AttibuteType<T> *>(it->second.get());
    }
 
 protected:
@@ -330,6 +406,30 @@ public:
       hull = std::make_unique<Mesh<Dim, 0>>(this);
    }
 
+   virtual std::size_t getNumBodies() const override;
+
+   virtual MeshElement* getBody(std::size_t idx) const override;
+
+   virtual MeshElement* getBodyByID(std::size_t id) const override;
+
+   virtual std::size_t getNumFacets() const override;
+
+   virtual MeshElement* getFacet(std::size_t idx) const override;
+
+   virtual MeshElement* getFacetByID(std::size_t id) const override;
+
+   virtual std::size_t getNumRidges() const override;
+
+   virtual MeshElement* getRidge(std::size_t idx) const override;
+
+   virtual MeshElement* getRidgeByID(std::size_t id) const override;
+
+   virtual std::size_t getNumPeaks() const override;
+
+   virtual MeshElement* getPeak(std::size_t idx) const override;
+
+   virtual MeshElement* getPeakByID(std::size_t id) const override;
+
    /**
     * Returns the i-th edge of this mesh.
     *
@@ -361,7 +461,7 @@ public:
 
    std::size_t getNumEdges() const;
 
-   Mesh<Dim, 0>* getHull() const;
+   virtual IMesh* getHull() const override;
 
    void getEdgesOfVertex(std::size_t idx, std::vector<Edge<Dim>*>& edges) const;
 
@@ -410,6 +510,30 @@ public:
       hull = std::make_unique<Mesh<Dim, 1>>(this);
    }
 
+   virtual std::size_t getNumBodies() const override;
+
+   virtual MeshElement* getBody(std::size_t idx) const override;
+
+   virtual MeshElement* getBodyByID(std::size_t id) const override;
+
+   virtual std::size_t getNumFacets() const override;
+
+   virtual MeshElement* getFacet(std::size_t idx) const override;
+
+   virtual MeshElement* getFacetByID(std::size_t id) const override;
+
+   virtual std::size_t getNumRidges() const override;
+
+   virtual MeshElement* getRidge(std::size_t idx) const override;
+
+   virtual MeshElement* getRidgeByID(std::size_t id) const override;
+
+   virtual std::size_t getNumPeaks() const override;
+
+   virtual MeshElement* getPeak(std::size_t idx) const override;
+
+   virtual MeshElement* getPeakByID(std::size_t id) const override;
+
    Face<Dim>* getFace(std::size_t idx) const;
 
    Face<Dim>* getFaceByID(std::size_t id) const;
@@ -425,7 +549,7 @@ public:
    std::pair<typename std::unordered_multimap<std::size_t, Face<Dim>*>::const_iterator,
    typename std::unordered_multimap<std::size_t, Face<Dim>*>::const_iterator> getFacesOfEdge(Edge<Dim>* edge) const;
 
-   Mesh<Dim, 1>* getHull() const;
+   virtual IMesh* getHull() const override;
 
    template<class T>
    Attribute<T>* getOrCreateAttributeOnFace(const std::string &name)
@@ -461,7 +585,33 @@ class Mesh<3, 3> : public Mesh<3, 2>
 public:
    Mesh(std::vector<Eigen::Matrix<double, 3, 1>>* points);
 
+   std::size_t getNumBodies() const override;
+
+   MeshElement* getBody(std::size_t idx) const override;
+
+   MeshElement* getBodyByID(std::size_t id) const override;
+
+   std::size_t getNumFacets() const override;
+
+   MeshElement* getFacet(std::size_t idx) const override;
+
+   MeshElement* getFacetByID(std::size_t id) const override;
+
+   std::size_t getNumRidges() const override;
+
+   MeshElement* getRidge(std::size_t idx) const override;
+
+   MeshElement* getRidgeByID(std::size_t id) const override;
+
+   std::size_t getNumPeaks() const override;
+
+   MeshElement* getPeak(std::size_t idx) const override;
+
+   MeshElement* getPeakByID(std::size_t id) const override;
+
    Cell* getCell(std::size_t idx) const;
+
+   Cell* getCellByID(std::size_t id) const;
 
    std::size_t getNumCells() const;
 

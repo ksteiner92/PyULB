@@ -6,6 +6,8 @@
 #define LBM_UTILS_H
 
 #include <tuple>
+#include <vector>
+#include <algorithm>
 
 #include "mesh.h"
 
@@ -15,6 +17,23 @@ template<class T>
 inline T sqr(T x)
 {
    return x * x;
+}
+
+template<class T>
+typename std::vector<T>::iterator insertSorted(std::vector<T>& vec, const T& item)
+{
+   return vec.insert(std::upper_bound(vec.begin(), vec.end(), item), item);
+}
+
+template<class ForwardIt, class T, class Compare=std::less<>>
+ForwardIt binary_find(ForwardIt first, ForwardIt last, const T& value, Compare comp={})
+{
+   // Note: BOTH type T and the type after ForwardIt is dereferenced
+   // must be implicitly convertible to BOTH Type1 and Type2, used in Compare.
+   // This is stricter than lower_bound requirement (see above)
+
+   first = std::lower_bound(first, last, value, comp);
+   return first != last && !comp(value, *first) ? first : last;
 }
 
 struct RandomHash

@@ -233,10 +233,11 @@ void Delaunay2D::generate(Mesh<2, 2> &mesh)
    }
    progress.stop();
    LOG_T(INFO) << "Storing hull information ..." << LogFlags::ENDL;
-   Mesh<2, 1>* hull = mesh.getHull();
-   for (size_t i = 0; i < nneibours.size(); i++)
+   Mesh<2, 1>* hull = dynamic_cast<Mesh<2, 1>*>(mesh.getHull());
+   for (size_t i = 0; i < nneibours.size(); i++) {
       if (nneibours[i] == 1)
          hull->getOrCreateEdgeByID(i);
+   }
 }
 
 void Delaunay2D::insertPoint(int r)

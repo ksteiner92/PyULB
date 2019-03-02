@@ -33,5 +33,6 @@
 #define EIGEN_USE_MKL_ALL
 #include <Eigen/Eigenvalues>
 #include <Eigen/Dense>
+#include <Eigen/Sparse>
 
 #endif //EDGE_EIGEN_H

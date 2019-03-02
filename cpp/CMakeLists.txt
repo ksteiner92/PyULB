@@ -1,4 +1,4 @@
-add_library(ulb SHARED mesh.cc delauny.cc lbm.cc logger.cc)
+add_library(ulb SHARED mesh.cc delauny.cc lbm.cc logger.cc poisson.cc)
 
 find_package(MKL)
 if(MKL_FOUND)

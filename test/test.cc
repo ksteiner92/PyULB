@@ -30,7 +30,7 @@ int main(int argc, char** argv)
    Mesh<2, 2> mesh(&points);
    Delaunay2D d;
    d.generate(mesh);
-   LatticeBoltzmann2D lbm(&mesh, {mesh.getHull()}, 1.0, 1.0 / sqrt(3.0));
-   lbm.calculate(0.1, 10);
+   LatticeBoltzmann2D lbm(&mesh, {dynamic_cast<Mesh<2, 1>*>(mesh.getHull())}, 1.0, 1.0 / sqrt(3.0));
+   //lbm.calculate(0.1, 10);
    return 0;
 }
