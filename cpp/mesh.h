@@ -44,41 +44,47 @@ public:
 };
 
 template<uint Dim, int SimplexDim>
+struct SimplexTraits
+{};
+
+template<uint Dim>
+struct SimplexTraits<Dim, 0>
+{
+   typedef int FacetElementType;
+   typedef std::size_t FacetsType;
+};
+
+template<uint Dim>
+struct SimplexTraits<Dim, 1>
+{
+   typedef Vertex<Dim>* FacetElementType;
+   typedef std::array<FacetElementType, 2> FacetsType;
+};
+
+template<uint Dim>
+struct SimplexTraits<Dim, 2>
+{
+   typedef Edge<Dim>* FacetElementType;
+   typedef std::array<FacetElementType, 3> FacetsType;
+};
+
+template<uint Dim>
+struct SimplexTraits<Dim, 3>
+{
+   typedef Face<Dim>* FacetElementType;
+   typedef std::array<FacetElementType, 4> FacetsType;
+};
+
+template<uint Dim, int SimplexDim>
 class Simplex : public MeshElement
 {
    static_assert(SimplexDim <= Dim, "Simplex dimension has to be smaller or equal than dimension");
    static_assert(Dim <= 3, "Dimension can only be 1, 2 or 3");
 
-private:
-   template<bool, class TrueT = void, class FalseT = void>
-   struct enable_if_else {};
-
-   template<class TrueT, class FalseT>
-   struct enable_if_else<true, TrueT, FalseT>
-   {
-      typedef TrueT type;
-   };
-
-   template<class TrueT, class FalseT>
-   struct enable_if_else<false, TrueT, FalseT>
-   {
-      typedef FalseT type;
-   };
-
-   template< bool B, class TrueT = void, class FalseT = void>
-   using enable_if_else_t = typename enable_if_else<B, TrueT, FalseT>::type;
 
 public:
-   typedef enable_if_else_t<SimplexDim == 1, Vertex<Dim>*,
-           enable_if_else_t<SimplexDim == 2, Edge<Dim>*,
-           enable_if_else_t<SimplexDim == 3, Face<Dim>*,
-           int > > >  FacetElementType;
-
-   typedef enable_if_else_t<SimplexDim == 1, std::array<FacetElementType, 2>,
-           enable_if_else_t<SimplexDim == 2, std::array<FacetElementType, 3>,
-           enable_if_else_t<SimplexDim == 3, std::array<FacetElementType, 4>,
-           std::size_t > > >  FacetsType;
-
+   typedef typename SimplexTraits<Dim, SimplexDim>::FacetElementType FacetElementType;
+   typedef typename SimplexTraits<Dim, SimplexDim>::FacetsType FacetsType;
    typedef std::array<std::size_t, SimplexDim + 1> FacetPointListType;
 
 private:
