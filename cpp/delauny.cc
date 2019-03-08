@@ -4,6 +4,7 @@
 
 #include <iostream>
 #include <memory>
+#include <numeric>
 
 #include "delauny.h"
 #include "utils.h"
