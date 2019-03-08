@@ -44,5 +44,5 @@ endif()
 
 if (BUILD_TETGEN)
     target_include_directories(ulb PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../lib)
-    target_link_libraries(ulb tet triangle)
+    target_link_libraries(ulb tetgen triangle)
 endif()
