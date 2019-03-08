@@ -23,6 +23,15 @@ void ignore_me() {}
       return (*$self)[i];
    }
 };
+
+%extend MeshElement
+{
+    int __getitem__(std::size_t i)
+    {
+       return (*$self)[i];
+    }
+};
+
 %ignore Simplex<1, 0>::getFacet;
 %ignore Simplex<2, 0>::getFacet;
 %ignore Simplex<3, 0>::getFacet;

@@ -41,3 +41,8 @@ if (USE_OMP)
     find_package(OpenMP REQUIRED)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
 endif()
+
+if (BUILD_TETGEN)
+    target_include_directories(ulb PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../lib)
+    target_link_libraries(ulb tet triangle)
+endif()

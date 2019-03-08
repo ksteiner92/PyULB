@@ -8,6 +8,9 @@
 #include "delauny.h"
 #include "utils.h"
 #include "logger.h"
+#define VOID void
+#define REAL double
+#include "triangle/triangle.h"
 
 using namespace std;
 using namespace Eigen;
@@ -154,6 +157,70 @@ void Delaunay2D::generate(Mesh<2, 2> &mesh)
    npts = mesh.getNumPoints();
    if (npts < 3)
       throw logic_error("There is no grid for only two points");
+
+   vector<double> coords(npts * 2, 0.0);
+   for (int i = 0; i < npts; i++) {
+      const Vector2d &p = mesh.getPoint(i);
+      coords[i * 2 + 0] = p(0);
+      coords[i * 2 + 1] = p(1);
+   }
+
+   triangulateio triio;
+   triio.pointlist = &coords[0];
+   triio.numberofpoints = npts;
+   triio.numberofsegments = 0;
+   vector<int> edgemarks(npts, 0);
+   triio.edgemarkerlist = &edgemarks[0];
+   vector<int> pointmarks(npts, 0);
+   triio.pointmarkerlist = &pointmarks[0];
+   triio.numberofpointattributes = 0;
+   triio.pointmarkerlist = nullptr;
+   triio.numberofholes = 0;
+   triio.numberofregions = 0;
+
+   triangulateio triout;
+   triout.pointlist = nullptr;            /* Not needed if -N switch used. */
+   /* Not needed if -N switch used or number of point attributes is zero: */
+   triout.pointattributelist = nullptr;
+   triout.pointmarkerlist = nullptr; /* Not needed if -N or -B switch used. */
+   triout.trianglelist = nullptr;          /* Not needed if -E switch used. */
+   /* Not needed if -E switch used or number of triangle attributes is zero: */
+   triout.triangleattributelist = nullptr;
+   triout.neighborlist = nullptr;         /* Needed only if -n switch used. */
+   /* Needed only if segments are output (-p or -c) and -P not used: */
+   triout.segmentlist = nullptr;
+   /* Needed only if segments are output (-p or -c) and -P and -B not used: */
+   triout.segmentmarkerlist = nullptr;
+   triout.edgelist = nullptr;             /* Needed only if -e switch used. */
+   triout.edgemarkerlist = nullptr;   /* Needed if -e used and -B not used. */
+
+   triangulate((char *) "peczqQ", &triio, &triout, nullptr);
+
+   Mesh<2, 1>* hull = dynamic_cast<Mesh<2, 1>*>(mesh.getHull());
+   for (size_t iv = 0; iv < triout.numberofpoints; iv++) {
+      mesh.getOrCreateVertexByID(iv);
+      if (triout.pointmarkerlist[iv] > 0)
+         hull->getOrCreateVertexByID(iv);
+   }
+   for (size_t ie = 0; ie < triout.numberofedges; ie++) {
+      Edge<2>* edge = mesh.getOrCreateEdge(triout.edgelist[ie * 2 + 0], triout.edgelist[ie * 2 + 1]);
+      if (triout.edgemarkerlist[ie] > 0) {
+         hull->getOrCreateEdgeByID(edge->getID());
+      }
+   }
+   for (size_t it = 0; it < triout.numberoftriangles; it++) {
+      array<Edge<2>*, 3> edges  = {
+              mesh.getEdge(triout.trianglelist[it * 3 + 0], triout.trianglelist[it * 3 + 1]),
+              mesh.getEdge(triout.trianglelist[it * 3 + 0], triout.trianglelist[it * 3 + 2]),
+              mesh.getEdge(triout.trianglelist[it * 3 + 1], triout.trianglelist[it * 3 + 2])
+      };
+      mesh.getOrCreateFace(edges[0], edges[1], edges[2]);
+   }
+
+   return;
+
+
+
    ntri = 0;
    ntree = 0;
    ntreemax = 10 * npts + 1000;
@@ -210,34 +277,43 @@ void Delaunay2D::generate(Mesh<2, 2> &mesh)
 
    LOG_T(INFO) << "Storing mesh information ..." << LogFlags::ENDL;
    progress.start(ntree);
-   vector<uint8_t> nneibours;
+   vector<size_t> nneibours;
+   size_t tricount = 0;
    for (int i = 0; i < ntree; i++) {
       if (triangles[i].stat > 0) {
          if (triangles[i].p[0] >= npts || triangles[i].p[1] >= npts || triangles[i].p[2] >= npts) {
             triangles[i].stat = -1;
             ntri--;
          } else {
-            Edge<2>* e1 = mesh.getOrCreateEdge(triangles[i].p[1], triangles[i].p[2]);
-            Edge<2>* e2 = mesh.getOrCreateEdge(triangles[i].p[2], triangles[i].p[0]);
-            Edge<2>* e3 = mesh.getOrCreateEdge(triangles[i].p[0], triangles[i].p[1]);
-            mesh.getOrCreateFace(e1, e2, e3);
-            const size_t maxid = max(e1->getID(), max(e2->getID(), e3->getID()));
+            tricount++;
+            array<Edge<2>*, 3> e;
+            e[0] = mesh.getOrCreateEdge(triangles[i].p[1], triangles[i].p[2]);
+            e[1] = mesh.getOrCreateEdge(triangles[i].p[2], triangles[i].p[0]);
+            e[2] = mesh.getOrCreateEdge(triangles[i].p[0], triangles[i].p[1]);
+            mesh.getOrCreateFace(e[0], e[1], e[2]);
+            const size_t maxid = max(e[0]->getID(), max(e[1]->getID(), e[2]->getID()));
             if (maxid >= nneibours.size())
                nneibours.resize(maxid + 1, 0);
-            nneibours[e1->getID()]++;
-            nneibours[e2->getID()]++;
-            nneibours[e3->getID()]++;
+            for (uint8_t ei = 0; ei < 3; ei++) {
+               const size_t eid = e[ei]->getID();
+               nneibours[eid]++;
+            }
          }
       }
       progress.update(i);
    }
    progress.stop();
    LOG_T(INFO) << "Storing hull information ..." << LogFlags::ENDL;
-   Mesh<2, 1>* hull = dynamic_cast<Mesh<2, 1>*>(mesh.getHull());
+   //Mesh<2, 1>* hull = dynamic_cast<Mesh<2, 1>*>(mesh.getHull());
+   size_t hcount = 0;
    for (size_t i = 0; i < nneibours.size(); i++) {
-      if (nneibours[i] == 1)
+      if (nneibours[i] < 2) {
          hull->getOrCreateEdgeByID(i);
+         hcount++;
+      }
    }
+   LOG_T(INFO) << "Found " << hcount << " hull edges" << LogFlags::ENDL;
+   LOG_T(INFO) << "Found " << ntri << " faces" << LogFlags::ENDL;
 }
 
 void Delaunay2D::insertPoint(int r)

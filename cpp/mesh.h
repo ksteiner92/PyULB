@@ -463,7 +463,8 @@ public:
 
    virtual IMesh* getHull() const override;
 
-   void getEdgesOfVertex(std::size_t idx, std::vector<Edge<Dim>*>& edges) const;
+   std::pair<typename std::unordered_multimap<std::size_t, Edge<Dim>*>::const_iterator,
+           typename std::unordered_multimap<std::size_t, Edge<Dim>*>::const_iterator> getEdgesOfVertex(std::size_t idx) const;
 
    template<class T>
    Attribute<T>* getOrCreateAttributeOnEdge(const std::string &name)

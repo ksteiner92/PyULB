@@ -24,6 +24,7 @@
 
 %include "delauny.h"
 %include "mesh.i"
+%include "poisson.i"
 
 %template(VectorDouble) std::vector<double>;
 %template(VectorInt) std::vector<int>;

@@ -5,6 +5,8 @@
 #ifndef ULB_POISSON_H
 #define ULB_POISSON_H
 
+#include <vector>
+
 #include "eigen.h"
 #include "mesh.h"
 
@@ -16,8 +18,15 @@ class Poisson
 public:
    Poisson(IMesh* mesh);
 
+   void solve(const std::string &phi,
+              const std::string &rho,
+              const std::vector<std::size_t> &dirichlet);
+
 private:
-   Eigen::SparseMatrix<double> K;
+   size_t ninterior;
+   Mesh<Dim, 1>* mesh1D;
+   Eigen::SparseMatrix<double, Eigen::RowMajor> K;
+   std::vector<long long int> interior;
 
 };
 
