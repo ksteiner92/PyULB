@@ -46,29 +46,29 @@ void ignore_me() {}
 %template(Simplex3D3D) Simplex<3, 3>;
 
 %template(Vertex1D) Vertex<1>;
-%template(Vertex1DList) std::vector<Vertex<1>>;
+%template(Vertex1DList) std::vector<Vertex<1>*>;
 %template(Vertex2D) Vertex<2>;
-%template(Vertex2DList) std::vector<Vertex<2>>;
+%template(Vertex2DList) std::vector<Vertex<2>*>;
 %template(Vertex3D) Vertex<3>;
-%template(Vertex3DList) std::vector<Vertex<3>>;
+%template(Vertex3DList) std::vector<Vertex<3>*>;
 %template(Edge1D) Edge<1>;
-%template(Edge1DList) std::vector<Edge<1>>;
+%template(Edge1DList) std::vector<Edge<1>*>;
 %template(Edge2D) Edge<2>;
-%template(Edge2DList) std::vector<Edge<2>>;
+%template(Edge2DList) std::vector<Edge<2>*>;
 %template(Edge3D) Edge<3>;
-%template(Edge3DList) std::vector<Edge<3>>;
+%template(Edge3DList) std::vector<Edge<3>*>;
 %template(Face2D) Face<2>;
-%template(Face2DList) std::vector<Face<2>>;
+%template(Face2DList) std::vector<Face<2>*>;
 %template(Face3D) Face<3>;
-%template(Face3DList) std::vector<Face<3>>;
+%template(Face3DList) std::vector<Face<3>*>;
 %template(Cell3DList) std::vector<Cell>;
 
-%template(FacetsEdge1D) std::array<Vertex<1>, 2>;
-%template(FacetsEdge2D) std::array<Vertex<2>, 2>;
-%template(FacetsEdge3D) std::array<Vertex<3>, 2>;
-%template(FacetsFace2D) std::array<Edge<2>, 3>;
-%template(FacetsFace3D) std::array<Edge<3>, 3>;
-%template(FacetsCell3D) std::array<Face<3>, 4>;
+%template(FacetsEdge1D) std::array<Vertex<1>*, 2>;
+%template(FacetsEdge2D) std::array<Vertex<2>*, 2>;
+%template(FacetsEdge3D) std::array<Vertex<3>*, 2>;
+%template(FacetsFace2D) std::array<Edge<2>*, 3>;
+%template(FacetsFace3D) std::array<Edge<3>*, 3>;
+%template(FacetsCell3D) std::array<Face<3>*, 4>;
 
 %ignore getFacesOfEdge;
 
