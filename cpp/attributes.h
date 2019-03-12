@@ -67,6 +67,20 @@ public:
 
    Attribute(std::size_t n, const T& def) : BaseAttribute(n), values(n, def) {}
 
+   T& operator[](std::size_t idx)
+   {
+      if (idx >= values.size())
+         throw std::out_of_range("Index out of range");
+      return values[idx];
+   }
+
+   const T& operator[](std::size_t idx) const
+   {
+      if (idx >= values.size())
+         throw std::out_of_range("Index out of range");
+      return values[idx];
+   }
+
    void setValue(std::size_t idx, const T &value)
    {
       if (idx >= values.size())

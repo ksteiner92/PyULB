@@ -24,14 +24,8 @@ class Edge;
 template<uint Dim>
 class Face;
 
-template<uint Dim>
-class Grid;
-
 template<uint Dim, uint TopDim>
 class Mesh;
-
-template<uint Dim, uint TopDim>
-class IMesher;
 
 class MeshElement
 {
@@ -257,6 +251,14 @@ public:
 
    virtual IMesh* getHull() const = 0;
 
+   virtual BaseAttribute* getAttributeOnBody(const std::string &name) const = 0;
+
+   virtual BaseAttribute* getAttributeOnFacet(const std::string &name) const = 0;
+
+   virtual BaseAttribute* getAttributeOnRidge(const std::string &name) const = 0;
+
+   virtual BaseAttribute* getAttributeOnPeak(const std::string &name) const = 0;
+
 };
 
 template<uint Dim, uint TopDim=Dim>
@@ -302,6 +304,14 @@ public:
 
    virtual MeshElement* getPeakByID(std::size_t id) const override;
 
+   virtual BaseAttribute* getAttributeOnBody(const std::string &name) const override;
+
+   virtual BaseAttribute* getAttributeOnFacet(const std::string &name) const override;
+
+   virtual BaseAttribute* getAttributeOnRidge(const std::string &name) const override;
+
+   virtual BaseAttribute* getAttributeOnPeak(const std::string &name) const override;
+
    const Eigen::Matrix<double, Dim, 1>& getPoint(std::size_t idx) const;
 
    std::vector<Eigen::Matrix<double, Dim, 1>>* getPoints() const;
@@ -323,9 +333,21 @@ public:
    virtual IMesh* getHull() const override;
 
    template<class T>
+   Attribute<T>* getAttributeOnVertex(const std::string &name)
+   {
+      return Mesh<Dim, 0>::template getAttribute<T>(name, vertexAttrs, refvertices.size());
+   }
+
+   template<class T>
    Attribute<T>* getOrCreateAttributeOnVertex(const std::string &name)
    {
       return Mesh<Dim, 0>::template getOrCreateAttribute<T>(name, vertexAttrs, refvertices.size());
+   }
+
+   template<class T>
+   ListAttribute<T>* getListAttributeOnVertex(const std::string &name)
+   {
+      return Mesh<Dim, 0>::template getAttribute<T, ListAttribute>(name, vertexAttrs, refvertices.size());
    }
 
    template<class T>
@@ -347,6 +369,17 @@ public:
    }
 
 protected:
+   static inline BaseAttribute *getAttribute(const std::string &name,
+                                             const std::unordered_map<std::string,
+                                                     std::unique_ptr<BaseAttribute>> &attrlst,
+                                             std::size_t size)
+   {
+      const auto it = attrlst.find(name);
+      if (it == attrlst.end())
+         return nullptr;
+      return it->second.get();
+   }
+
    template<typename T, template<typename> typename AttibuteType = Attribute>
    static inline AttibuteType<T> *getOrCreateAttribute(const std::string &name,
                                                        std::unordered_map<std::string,
@@ -373,6 +406,18 @@ protected:
          attrlst[name] = std::make_unique<Attribute<T>>(size);
          return static_cast<AttibuteType<T> *>(attrlst[name].get());
       }
+      return static_cast<AttibuteType<T> *>(it->second.get());
+   }
+
+   template<typename T, template<typename> typename AttibuteType = Attribute>
+   static inline AttibuteType<T> *getAttribute(const std::string &name,
+                                               std::unordered_map<std::string,
+                                                       std::unique_ptr<BaseAttribute>> &attrlst,
+                                               std::size_t size)
+   {
+      const auto it = attrlst.find(name);
+      if (it == attrlst.end())
+         return nullptr;
       return static_cast<AttibuteType<T> *>(it->second.get());
    }
 
@@ -436,6 +481,14 @@ public:
 
    virtual MeshElement* getPeakByID(std::size_t id) const override;
 
+   virtual BaseAttribute* getAttributeOnBody(const std::string &name) const override;
+
+   virtual BaseAttribute* getAttributeOnFacet(const std::string &name) const override;
+
+   virtual BaseAttribute* getAttributeOnRidge(const std::string &name) const override;
+
+   virtual BaseAttribute* getAttributeOnPeak(const std::string &name) const override;
+
    /**
     * Returns the i-th edge of this mesh.
     *
@@ -471,6 +524,12 @@ public:
 
    std::pair<typename std::unordered_multimap<std::size_t, Edge<Dim>*>::const_iterator,
            typename std::unordered_multimap<std::size_t, Edge<Dim>*>::const_iterator> getEdgesOfVertex(std::size_t idx) const;
+
+   template<class T>
+   Attribute<T>* getAttributeOnEdge(const std::string &name)
+   {
+      return Mesh<Dim, 0>::template getAttribute<T>(name, edgeAttrs, refedges.size());
+   }
 
    template<class T>
    Attribute<T>* getOrCreateAttributeOnEdge(const std::string &name)
@@ -541,6 +600,14 @@ public:
 
    virtual MeshElement* getPeakByID(std::size_t id) const override;
 
+   virtual BaseAttribute* getAttributeOnBody(const std::string &name) const override;
+
+   virtual BaseAttribute* getAttributeOnFacet(const std::string &name) const override;
+
+   virtual BaseAttribute* getAttributeOnRidge(const std::string &name) const override;
+
+   virtual BaseAttribute* getAttributeOnPeak(const std::string &name) const override;
+
    Face<Dim>* getFace(std::size_t idx) const;
 
    Face<Dim>* getFaceByID(std::size_t id) const;
@@ -557,6 +624,12 @@ public:
    typename std::unordered_multimap<std::size_t, Face<Dim>*>::const_iterator> getFacesOfEdge(Edge<Dim>* edge) const;
 
    virtual IMesh* getHull() const override;
+
+   template<class T>
+   Attribute<T>* getAttributeOnFace(const std::string &name)
+   {
+      return Mesh<Dim, 0>::template getAttribute<T>(name, facesAttrs, reffaces.size());
+   }
 
    template<class T>
    Attribute<T>* getOrCreateAttributeOnFace(const std::string &name)
@@ -616,6 +689,14 @@ public:
 
    MeshElement* getPeakByID(std::size_t id) const override;
 
+   BaseAttribute* getAttributeOnBody(const std::string &name) const override;
+
+   BaseAttribute* getAttributeOnFacet(const std::string &name) const override;
+
+   BaseAttribute* getAttributeOnRidge(const std::string &name) const override;
+
+   BaseAttribute* getAttributeOnPeak(const std::string &name) const override;
+
    Cell* getCell(std::size_t idx) const;
 
    Cell* getCellByID(std::size_t id) const;
@@ -623,15 +704,21 @@ public:
    std::size_t getNumCells() const;
 
    template<class T>
-   Attribute<T>* getOrCreateAttributeOnBody(const std::string &name)
+   Attribute<T>* getAttributeOnCell(const std::string &name)
    {
-      return Mesh<3, 0>::template getOrCreateAttribute<T>(name, bodiesAttrs, cells.size());
+      return Mesh<3, 0>::template getAttribute<T>(name, cellsAttrs, cells.size());
+   }
+
+   template<class T>
+   Attribute<T>* getOrCreateAttributeOnCell(const std::string &name)
+   {
+      return Mesh<3, 0>::template getOrCreateAttribute<T>(name, cellsAttrs, cells.size());
    }
 
    template<class T>
    Attribute<T>* getOrCreateAttributeOnBody(const std::string &name, const T& def)
    {
-      return Mesh<3, 0>::template getOrCreateAttribute<T>(name, bodiesAttrs, cells.size(), def);
+      return Mesh<3, 0>::template getOrCreateAttribute<T>(name, cellsAttrs, cells.size(), def);
    }
 
 protected:
@@ -639,72 +726,9 @@ protected:
    std::unordered_multimap<unsigned long long int, Cell*> point2body;
    std::unordered_multimap<unsigned long long int, Cell*> edge2body;
    std::unordered_multimap<unsigned long long int, Cell*> face2body;
-   std::unordered_map<std::string, std::unique_ptr<BaseAttribute>> bodiesAttrs;
+   std::unordered_map<std::string, std::unique_ptr<BaseAttribute>> cellsAttrs;
    Mesh<3, 2>* hull;
 
-};
-
-/*template<uint Dim, uint TopDim>
-class Boundary : public Mesh<Dim, TopDim - 1>
-{
-public:
-   template<uint MeshTopDim>
-   Boundary(Mesh<Dim, MeshTopDim>* mesh) : Mesh<Dim, TopDim - 1>(mesh)
-   {
-      typedef Eigen::Matrix<double, Dim, 1> VectorType;
-      std::size_t mostleftbottom = 0;
-      const VectorType& p = mesh.getPoint(Mesh<Dim, TopDim - 1>::refvertices[0]);
-      double x1 = p[0];
-      double y1 = p[1];
-      for (std::size_t iv = 1; iv < Mesh<Dim, TopDim - 1>::refvertices.size(); iv++) {
-         const VectorType& p = mesh.getPoint(Mesh<Dim, TopDim - 1>::refvertices[iv]);
-         const double xdiff = p[0] - x1;
-         const bool ylower = p[1] < y1;
-         if (ylower)
-            y1 = p[1];
-         if (abs(xdiff) <= epsilon) {
-            if (ylower)
-               mostleftbottom = i;
-         } else if (xdiff < 0.0) {
-            x1 = p[0];
-            mostleftbottom = i;
-         }
-      }
-      vector<size_t> bvertices(boundary->getNumVertices());
-      iota(bvertices.begin(), bvertices.end(), 0);
-      swap(bvertices[0], bvertices[mostleftbottom]);
-      sort(bvertices.begin() + 1, bvertices.end(), [&p, &maxcolin, &pstart, this](int a, int b) {
-         const double o = Delaunay2D::orientation(p, pts[a], pts[b]);
-         if (o == 0.0) {
-            const double pa = (pts[a] - p).squaredNorm();
-            const double pb = (pts[b] - p).squaredNorm();
-            const double m = max(pa, pb);
-            const bool res = pa < pb;
-            if (m > maxcolin) {
-               maxcolin = m;
-               pstart = res ? b : a;
-            }
-            return res;
-         }
-         return o > 0.0;
-      });
-   }
-
-private:
-   static constexpr double epsilon = 1.0e-10;
-
-   static double orientation(const Eigen::Vector2d &p,
-                             const Eigen::Vector2d &q,
-                             const Eigen::Vector2d &i);
-
-
-};*/
-
-template<uint Dim, uint TopDim>
-class IMesher
-{
-public:
-   virtual void generate(Mesh<Dim, TopDim>& mesh) = 0;
 };
 
 #endif //LBM_POINT_H

@@ -54,12 +54,12 @@ private:
    std::vector<Eigen::Vector2d>* pts;
 };
 
-class Delaunay2D : public IMesher<2, 2>
+class Delaunay2D
 {
 public:
    Delaunay2D();
 
-   void generate(Mesh<2, 2>& mesh) override;
+   void generate(Mesh<2, 2>& mesh);
 
 private:
    struct TriangleTreeElement

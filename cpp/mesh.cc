@@ -25,75 +25,99 @@ Mesh<Dim, 0>::Mesh(vector<Matrix<double, Dim, 1>>* points) : points(points)
 }
 
 template<uint Dim>
-std::size_t Mesh<Dim, 0>::getNumBodies() const
+size_t Mesh<Dim, 0>::getNumBodies() const
 {
    return getNumVertices();
 }
 
 template<uint Dim>
-MeshElement* Mesh<Dim, 0>::getBody(std::size_t idx) const
+MeshElement* Mesh<Dim, 0>::getBody(size_t idx) const
 {
    return getVertex(idx);
 }
 
 template<uint Dim>
-MeshElement* Mesh<Dim, 0>::getBodyByID(std::size_t id) const
+MeshElement* Mesh<Dim, 0>::getBodyByID(size_t id) const
 {
    return getVertexByID(id);
 }
 
 template<uint Dim>
-std::size_t Mesh<Dim, 0>::getNumFacets() const
+size_t Mesh<Dim, 0>::getNumFacets() const
 {
-   throw std::logic_error("Mesh with 0 topology does not have facets");
+   throw logic_error("Mesh with 0 topology does not have facets");
 }
 
 template<uint Dim>
-MeshElement* Mesh<Dim, 0>::getFacet(std::size_t idx) const
+MeshElement* Mesh<Dim, 0>::getFacet(size_t idx) const
 {
-   throw std::logic_error("Mesh with 0 topology does not have facets");
+   throw logic_error("Mesh with 0 topology does not have facets");
 }
 
 template<uint Dim>
-MeshElement* Mesh<Dim, 0>::getFacetByID(std::size_t id) const
+MeshElement* Mesh<Dim, 0>::getFacetByID(size_t id) const
 {
-   throw std::logic_error("Mesh with 0 topology does not have facets");
+   throw logic_error("Mesh with 0 topology does not have facets");
 }
 
 template<uint Dim>
-std::size_t Mesh<Dim, 0>::getNumRidges() const
+size_t Mesh<Dim, 0>::getNumRidges() const
 {
-   throw std::logic_error("Mesh with 0 topology does not have ridges");
+   throw logic_error("Mesh with 0 topology does not have ridges");
 }
 
 template<uint Dim>
-MeshElement* Mesh<Dim, 0>::getRidge(std::size_t idx) const
+MeshElement* Mesh<Dim, 0>::getRidge(size_t idx) const
 {
-   throw std::logic_error("Mesh with 0 topology does not have ridges");
+   throw logic_error("Mesh with 0 topology does not have ridges");
 }
 
 template<uint Dim>
-MeshElement* Mesh<Dim, 0>::getRidgeByID(std::size_t id) const
+MeshElement* Mesh<Dim, 0>::getRidgeByID(size_t id) const
 {
-   throw std::logic_error("Mesh with 0 topology does not have ridges");
+   throw logic_error("Mesh with 0 topology does not have ridges");
 }
 
 template<uint Dim>
-std::size_t Mesh<Dim, 0>::getNumPeaks() const
+size_t Mesh<Dim, 0>::getNumPeaks() const
 {
-   throw std::logic_error("Mesh with 0 topology does not have peaks");
+   throw logic_error("Mesh with 0 topology does not have peaks");
 }
 
 template<uint Dim>
-MeshElement* Mesh<Dim, 0>::getPeak(std::size_t idx) const
+MeshElement* Mesh<Dim, 0>::getPeak(size_t idx) const
 {
-   throw std::logic_error("Mesh with 0 topology does not have peaks");
+   throw logic_error("Mesh with 0 topology does not have peaks");
 }
 
 template<uint Dim>
-MeshElement* Mesh<Dim, 0>::getPeakByID(std::size_t id) const
+MeshElement* Mesh<Dim, 0>::getPeakByID(size_t id) const
 {
-   throw std::logic_error("Mesh with 0 topology does not have peaks");
+   throw logic_error("Mesh with 0 topology does not have peaks");
+}
+
+template<uint Dim>
+BaseAttribute* Mesh<Dim, 0>::getAttributeOnBody(const string &name) const
+{
+   return Mesh<Dim, 0>::getAttribute(name, vertexAttrs, refvertices.size());
+}
+
+template<uint Dim>
+BaseAttribute* Mesh<Dim, 0>::getAttributeOnFacet(const string &name) const
+{
+   throw logic_error("Mesh with topological dimension 0 does not have facets");
+}
+
+template<uint Dim>
+BaseAttribute* Mesh<Dim, 0>::getAttributeOnRidge(const string &name) const
+{
+   throw logic_error("Mesh with topological dimension 0 does not have ridges");
+}
+
+template<uint Dim>
+BaseAttribute* Mesh<Dim, 0>::getAttributeOnPeak(const string &name) const
+{
+   throw logic_error("Mesh with topological dimension 0 does not have peaks");
 }
 
 template<uint Dim>
@@ -193,75 +217,99 @@ Mesh<Dim, 1>::Mesh(vector<Matrix<double, Dim, 1>>* points) : Mesh<Dim, 0>(points
 }
 
 template<uint Dim>
-std::size_t Mesh<Dim, 1>::getNumBodies() const
+size_t Mesh<Dim, 1>::getNumBodies() const
 {
    return getNumEdges();
 }
 
 template<uint Dim>
-MeshElement* Mesh<Dim, 1>::getBody(std::size_t idx) const
+MeshElement* Mesh<Dim, 1>::getBody(size_t idx) const
 {
    return getEdge(idx);
 }
 
 template<uint Dim>
-MeshElement* Mesh<Dim, 1>::getBodyByID(std::size_t id) const
+MeshElement* Mesh<Dim, 1>::getBodyByID(size_t id) const
 {
    return getEdgeByID(id);
 }
 
 template<uint Dim>
-std::size_t Mesh<Dim, 1>::getNumFacets() const
+size_t Mesh<Dim, 1>::getNumFacets() const
 {
    return Mesh<Dim, 0>::getNumVertices();
 }
 
 template<uint Dim>
-MeshElement* Mesh<Dim, 1>::getFacet(std::size_t idx) const
+MeshElement* Mesh<Dim, 1>::getFacet(size_t idx) const
 {
    return Mesh<Dim, 0>::getVertex(idx);
 }
 
 template<uint Dim>
-MeshElement* Mesh<Dim, 1>::getFacetByID(std::size_t id) const
+MeshElement* Mesh<Dim, 1>::getFacetByID(size_t id) const
 {
    return Mesh<Dim, 0>::getVertexByID(id);
 }
 
 template<uint Dim>
-std::size_t Mesh<Dim, 1>::getNumRidges() const
+size_t Mesh<Dim, 1>::getNumRidges() const
 {
-   throw std::logic_error("Mesh with topological dimension does not have ridges");
+   throw logic_error("Mesh with topological dimension does not have ridges");
 }
 
 template<uint Dim>
-MeshElement* Mesh<Dim, 1>::getRidge(std::size_t idx) const
+MeshElement* Mesh<Dim, 1>::getRidge(size_t idx) const
 {
-   throw std::logic_error("Mesh with topological dimension 1 does not have ridges");
+   throw logic_error("Mesh with topological dimension 1 does not have ridges");
 }
 
 template<uint Dim>
-MeshElement* Mesh<Dim, 1>::getRidgeByID(std::size_t id) const
+MeshElement* Mesh<Dim, 1>::getRidgeByID(size_t id) const
 {
-   throw std::logic_error("Mesh with topological dimension 1 does not have ridges");
+   throw logic_error("Mesh with topological dimension 1 does not have ridges");
 }
 
 template<uint Dim>
-std::size_t Mesh<Dim, 1>::getNumPeaks() const
+size_t Mesh<Dim, 1>::getNumPeaks() const
 {
-   throw std::logic_error("Mesh with topological dimension 1 does not have peaks");
+   throw logic_error("Mesh with topological dimension 1 does not have peaks");
 }
 
 template<uint Dim>
-MeshElement* Mesh<Dim, 1>::getPeak(std::size_t idx) const
+MeshElement* Mesh<Dim, 1>::getPeak(size_t idx) const
 {
-   throw std::logic_error("Mesh with topological dimension 1 does not have peaks");
+   throw logic_error("Mesh with topological dimension 1 does not have peaks");
 }
 
 template<uint Dim>
-MeshElement* Mesh<Dim, 1>::getPeakByID(std::size_t id) const
+MeshElement* Mesh<Dim, 1>::getPeakByID(size_t id) const
 {
-   throw std::logic_error("Mesh with topological dimension 1 does not have peaks");
+   throw logic_error("Mesh with topological dimension 1 does not have peaks");
+}
+
+template<uint Dim>
+BaseAttribute* Mesh<Dim, 1>::getAttributeOnBody(const string &name) const
+{
+   return Mesh<Dim, 0>::getAttribute(name, edgeAttrs, refedges.size());
+}
+
+template<uint Dim>
+BaseAttribute* Mesh<Dim, 1>::getAttributeOnFacet(const string &name) const
+{
+   return Mesh<Dim, 0>::getAttributeOnBody(name);
+}
+
+template<uint Dim>
+BaseAttribute* Mesh<Dim, 1>::getAttributeOnRidge(const string &name) const
+{
+   throw logic_error("Mesh with topological dimension 1 does not have ridges");
+}
+
+template<uint Dim>
+BaseAttribute* Mesh<Dim, 1>::getAttributeOnPeak(const string &name) const
+{
+   throw logic_error("Mesh with topological dimension 1 does not have peaks");
 }
 
 template<uint Dim>
@@ -386,75 +434,99 @@ Mesh<Dim, 2>::Mesh(vector<Matrix<double, Dim, 1>>* points) : Mesh<Dim, 1>(points
 }
 
 template<uint Dim>
-std::size_t Mesh<Dim, 2>::getNumBodies() const
+size_t Mesh<Dim, 2>::getNumBodies() const
 {
    return getNumFaces();
 }
 
 template<uint Dim>
-MeshElement* Mesh<Dim, 2>::getBody(std::size_t idx) const
+MeshElement* Mesh<Dim, 2>::getBody(size_t idx) const
 {
    return getFace(idx);
 }
 
 template<uint Dim>
-MeshElement* Mesh<Dim, 2>::getBodyByID(std::size_t id) const
+MeshElement* Mesh<Dim, 2>::getBodyByID(size_t id) const
 {
    return getFaceByID(id);
 }
 
 template<uint Dim>
-std::size_t Mesh<Dim, 2>::getNumFacets() const
+size_t Mesh<Dim, 2>::getNumFacets() const
 {
    return Mesh<Dim, 1>::getNumEdges();
 }
 
 template<uint Dim>
-MeshElement* Mesh<Dim, 2>::getFacet(std::size_t idx) const
+MeshElement* Mesh<Dim, 2>::getFacet(size_t idx) const
 {
    return Mesh<Dim, 1>::getEdge(idx);
 }
 
 template<uint Dim>
-MeshElement* Mesh<Dim, 2>::getFacetByID(std::size_t id) const
+MeshElement* Mesh<Dim, 2>::getFacetByID(size_t id) const
 {
    return Mesh<Dim, 1>::getEdgeByID(id);
 }
 
 template<uint Dim>
-std::size_t Mesh<Dim, 2>::getNumRidges() const
+size_t Mesh<Dim, 2>::getNumRidges() const
 {
    return Mesh<Dim, 0>::getNumVertices();
 }
 
 template<uint Dim>
-MeshElement* Mesh<Dim, 2>::getRidge(std::size_t idx) const
+MeshElement* Mesh<Dim, 2>::getRidge(size_t idx) const
 {
    return Mesh<Dim, 0>::getVertex(idx);
 }
 
 template<uint Dim>
-MeshElement* Mesh<Dim, 2>::getRidgeByID(std::size_t id) const
+MeshElement* Mesh<Dim, 2>::getRidgeByID(size_t id) const
 {
    return Mesh<Dim, 0>::getVertexByID(id);
 }
 
 template<uint Dim>
-std::size_t Mesh<Dim, 2>::getNumPeaks() const
+size_t Mesh<Dim, 2>::getNumPeaks() const
 {
-   throw std::logic_error("Mesh with topological dimension 2 does not have peaks");
+   throw logic_error("Mesh with topological dimension 2 does not have peaks");
 }
 
 template<uint Dim>
-MeshElement* Mesh<Dim, 2>::getPeak(std::size_t idx) const
+MeshElement* Mesh<Dim, 2>::getPeak(size_t idx) const
 {
-   throw std::logic_error("Mesh with topological dimension 2 does not have peaks");
+   throw logic_error("Mesh with topological dimension 2 does not have peaks");
 }
 
 template<uint Dim>
-MeshElement* Mesh<Dim, 2>::getPeakByID(std::size_t id) const
+MeshElement* Mesh<Dim, 2>::getPeakByID(size_t id) const
 {
-   throw std::logic_error("Mesh with topological dimension 2 does not have peaks");
+   throw logic_error("Mesh with topological dimension 2 does not have peaks");
+}
+
+template<uint Dim>
+BaseAttribute* Mesh<Dim, 2>::getAttributeOnBody(const string &name) const
+{
+   return Mesh<Dim, 0>::getAttribute(name, facesAttrs, facesAttrs.size());
+}
+
+template<uint Dim>
+BaseAttribute* Mesh<Dim, 2>::getAttributeOnFacet(const string &name) const
+{
+   return Mesh<Dim, 1>::getAttributeOnBody(name);
+}
+
+template<uint Dim>
+BaseAttribute* Mesh<Dim, 2>::getAttributeOnRidge(const string &name) const
+{
+   return Mesh<Dim, 0>::getAttributeOnBody(name);
+}
+
+template<uint Dim>
+BaseAttribute* Mesh<Dim, 2>::getAttributeOnPeak(const string &name) const
+{
+   throw logic_error("Mesh with topological dimension 2 does not have peaks");
 }
 
 template<uint Dim>
@@ -552,64 +624,84 @@ Mesh<3, 3>::Mesh(vector<Matrix<double, 3, 1>>* points) : Mesh<3, 2>(points)
 {
 }
 
-std::size_t Mesh<3, 3>::getNumBodies() const
+size_t Mesh<3, 3>::getNumBodies() const
 {
    return getNumCells();
 }
 
-MeshElement* Mesh<3, 3>::getBody(std::size_t idx) const
+MeshElement* Mesh<3, 3>::getBody(size_t idx) const
 {
    return getCell(idx);
 }
 
-MeshElement* Mesh<3, 3>::getBodyByID(std::size_t id) const
+MeshElement* Mesh<3, 3>::getBodyByID(size_t id) const
 {
    return getCellByID(id);
 }
 
-std::size_t Mesh<3, 3>::getNumFacets() const
+size_t Mesh<3, 3>::getNumFacets() const
 {
    return Mesh<3, 2>::getNumFaces();
 }
 
-MeshElement* Mesh<3, 3>::getFacet(std::size_t idx) const
+MeshElement* Mesh<3, 3>::getFacet(size_t idx) const
 {
    return Mesh<3, 2>::getFace(idx);
 }
 
-MeshElement* Mesh<3, 3>::getFacetByID(std::size_t id) const
+MeshElement* Mesh<3, 3>::getFacetByID(size_t id) const
 {
    return Mesh<3, 2>::getFaceByID(id);
 }
 
-std::size_t Mesh<3, 3>::getNumRidges() const
+size_t Mesh<3, 3>::getNumRidges() const
 {
    return Mesh<3, 1>::getNumEdges();
 }
 
-MeshElement* Mesh<3, 3>::getRidge(std::size_t idx) const
+MeshElement* Mesh<3, 3>::getRidge(size_t idx) const
 {
    return Mesh<3, 1>::getEdge(idx);
 }
 
-MeshElement* Mesh<3, 3>::getRidgeByID(std::size_t id) const
+MeshElement* Mesh<3, 3>::getRidgeByID(size_t id) const
 {
    return Mesh<3, 1>::getEdgeByID(id);
 }
 
-std::size_t Mesh<3, 3>::getNumPeaks() const
+size_t Mesh<3, 3>::getNumPeaks() const
 {
    return Mesh<3, 0>::getNumVertices();
 }
 
-MeshElement* Mesh<3, 3>::getPeak(std::size_t idx) const
+MeshElement* Mesh<3, 3>::getPeak(size_t idx) const
 {
    return Mesh<3, 0>::getVertex(idx);
 }
 
-MeshElement* Mesh<3, 3>::getPeakByID(std::size_t id) const
+MeshElement* Mesh<3, 3>::getPeakByID(size_t id) const
 {
    return Mesh<3, 0>::getVertexByID(id);
+}
+
+BaseAttribute* Mesh<3, 3>::getAttributeOnBody(const string &name) const
+{
+   return Mesh<3, 0>::getAttribute(name, cellsAttrs, cellsAttrs.size());
+}
+
+BaseAttribute* Mesh<3, 3>::getAttributeOnFacet(const string &name) const
+{
+   return Mesh<3, 2>::getAttributeOnBody(name);
+}
+
+BaseAttribute* Mesh<3, 3>::getAttributeOnRidge(const string &name) const
+{
+   return Mesh<3, 1>::getAttributeOnBody(name);
+}
+
+BaseAttribute* Mesh<3, 3>::getAttributeOnPeak(const string &name) const
+{
+   return Mesh<3, 0>::getAttributeOnBody(name);
 }
 
 Cell* Mesh<3, 3>::getCell(size_t idx) const
@@ -622,7 +714,7 @@ Cell* Mesh<3, 3>::getCell(size_t idx) const
    return cells[idx].get();
 }
 
-Cell* Mesh<3, 3>::getCellByID(std::size_t id) const
+Cell* Mesh<3, 3>::getCellByID(size_t id) const
 {
    return nullptr;
 }
@@ -631,19 +723,6 @@ size_t Mesh<3, 3>::getNumCells() const
 {
    return cells.size();
 }
-
-/*template<uint Dim, uint TopDim>
-double Boundary<Dim, TopDim>::orientation(const Vector2d &p,
-                                          const Vector2d &q,
-                                          const Vector2d &i)
-{
-   const Vector2d pq = q - p;
-   const Vector2d pi = i - p;
-   const double o = pq(0) * pi(1) - pq(1) * pi(0);
-   if (abs(o) > Boundary<Dim, TopDim>::epsilon)
-      return o;
-   return 0.0;
-}*/
 
 template class Mesh<0, 0>;
 template class Mesh<1, 0>;

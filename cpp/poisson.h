@@ -22,11 +22,16 @@ public:
               const std::string &rho,
               const std::vector<std::size_t> &dirichlet);
 
+   void grad(const std::string& u, const std::string& E) const;
+
 private:
-   size_t ninterior;
-   Mesh<Dim, 1>* mesh1D;
+   IMesh* mesh;
    Eigen::SparseMatrix<double, Eigen::RowMajor> K;
    std::vector<long long int> interior;
+
+   static double orientation(const Eigen::Matrix<double, Dim, 1>& p,
+                             const Eigen::Matrix<double, Dim, 1>& q,
+                             const Eigen::Matrix<double, Dim, 1>& i);
 
 };
 
