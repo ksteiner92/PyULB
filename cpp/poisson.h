@@ -29,10 +29,6 @@ private:
    Eigen::SparseMatrix<double, Eigen::RowMajor> K;
    std::vector<long long int> interior;
 
-   static double orientation(const Eigen::Matrix<double, Dim, 1>& p,
-                             const Eigen::Matrix<double, Dim, 1>& q,
-                             const Eigen::Matrix<double, Dim, 1>& i);
-
 };
 
 

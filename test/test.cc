@@ -12,9 +12,12 @@
 #include "delauny.h"
 #include "lbm.h"
 #include "logger.h"
+#include "meshing.h"
+#include "fvm.h"
 
-#include "tetgen/tetgen.h"
+//#include "tetgen/tetgen.h"
 #define VOID void
+#define REAL double
 #include "triangle/triangle.h"
 
 using namespace std;
@@ -22,6 +25,7 @@ using namespace Eigen;
 
 int main(int argc, char** argv)
 {
+
    const size_t nx = 50;
    const size_t ny = 50;
    const double lx = 1.0;
@@ -41,14 +45,16 @@ int main(int argc, char** argv)
          points[y * nx * 2 + x * 2 + 1] = pts[y * nx + x](1);
       }
    }
-
+#if 0
+   Mesh<2, 2> mesh(points);
    triangulateio triio;
-   triio.pointlist = &points[0];
-   triio.numberofpoints = nx * ny;
+   triio.pointlist = &mesh.getCoords()[0];
+   const size_t npts = mesh.getCoords().size() / 2;
+   triio.numberofpoints = npts;
    triio.numberofsegments = 0;
-   vector<int> edgemarks(nx * ny, 0);
+   vector<int> edgemarks(npts, 0);
    triio.edgemarkerlist = &edgemarks[0];
-   vector<int> pointmarks(nx * ny, 0);
+   vector<int> pointmarks(npts, 0);
    triio.pointmarkerlist = &pointmarks[0];
    triio.numberofpointattributes = 0;
    triio.pointmarkerlist = nullptr;
@@ -56,7 +62,6 @@ int main(int argc, char** argv)
    triio.numberofregions = 0;
 
    triangulateio triout;
-
    triout.pointlist = nullptr;            /* Not needed if -N switch used. */
    /* Not needed if -N switch used or number of point attributes is zero: */
    triout.pointattributelist = nullptr;
@@ -72,11 +77,9 @@ int main(int argc, char** argv)
    triout.edgelist = nullptr;             /* Needed only if -e switch used. */
    triout.edgemarkerlist = nullptr;   /* Needed if -e used and -B not used. */
 
-   triangulate((char *) "peczq", &triio, &triout, nullptr);
+   triangulate((char *) "peczqQ", &triio, &triout, nullptr);
 
-   Mesh<2, 2> mesh(&pts);
    Mesh<2, 1>* hull = dynamic_cast<Mesh<2, 1>*>(mesh.getHull());
-   size_t hullcount = 0;
    for (size_t iv = 0; iv < triout.numberofpoints; iv++) {
       mesh.getOrCreateVertexByID(iv);
       if (triout.pointmarkerlist[iv] > 0)
@@ -90,18 +93,20 @@ int main(int argc, char** argv)
    }
    for (size_t it = 0; it < triout.numberoftriangles; it++) {
       array<Edge<2>*, 3> edges  = {
-         mesh.getEdge(triout.trianglelist[it * 3 + 0], triout.trianglelist[it * 3 + 1]),
-         mesh.getEdge(triout.trianglelist[it * 3 + 0], triout.trianglelist[it * 3 + 2]),
-         mesh.getEdge(triout.trianglelist[it * 3 + 1], triout.trianglelist[it * 3 + 2])
+              mesh.getEdge(triout.trianglelist[it * 3 + 0], triout.trianglelist[it * 3 + 1]),
+              mesh.getEdge(triout.trianglelist[it * 3 + 0], triout.trianglelist[it * 3 + 2]),
+              mesh.getEdge(triout.trianglelist[it * 3 + 1], triout.trianglelist[it * 3 + 2])
       };
       mesh.getOrCreateFace(edges[0], edges[1], edges[2]);
    }
+#endif
 
-   /*Mesh<2, 2> mesh(&points);
-   Delaunay2D d;
-   d.generate(mesh);
+   Mesh<2, 2> mesh(points);
+   Meshing d;
+   d.generate<2, 2>(mesh);
+   FVM fvm(&mesh);
 
-   Edge<2>* edge = mesh.getEdge(5);
+   /*Edge<2>* edge = mesh.getEdge(5);
    cout << "Edge 5: " << (*edge)[0] << ", " << (*edge)[1] << endl;
    set<tuple<size_t, size_t, size_t>> facesid;
    for (size_t i = 0; i < mesh.getNumFaces(); i++) {

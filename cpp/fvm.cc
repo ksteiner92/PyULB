@@ -1,10 +1,12 @@
 //
-// Created by klaus on 08.03.19.
+// Created by klaus on 17.04.19.
 //
 
-#include "meshing.h"
+#include <array>
+#include <vector>
+
+#include "fvm.h"
 #include "logger.h"
-#include "eigen.h"
 #define VOID void
 #define REAL double
 #include "triangle/triangle.h"
@@ -12,16 +14,12 @@
 using namespace std;
 using namespace Eigen;
 
-Meshing::Meshing()
+FVM::FVM(IMesh *mesh)
 {
-}
-
-template<>
-void Meshing::generate<2, 2>(Mesh<2, 2>& mesh)
-{
+   const size_t npts = mesh->getNumVertices();
+   cout << "npts: " << npts << endl;
    triangulateio triio;
-   triio.pointlist = &mesh.getCoords()[0];
-   const size_t npts = mesh.getCoords().size() / 2;
+   triio.pointlist = &mesh->getCoords()[0];
    triio.numberofpoints = npts;
    triio.numberofsegments = 0;
    vector<int> edgemarks(npts, 0);
@@ -65,35 +63,23 @@ void Meshing::generate<2, 2>(Mesh<2, 2>& mesh)
    vout.edgelist = nullptr;             /* Needed only if -e switch used. */
    vout.edgemarkerlist = nullptr;   /* Needed if -e used and -B not used. */
 
-   triangulate((char *) "vpeczqQ", &triio, &triout, &vout);
+   triangulate((char *) "veczq", &triio, &triout, &vout);
+   cout << "Triangulation done" << endl;
+   cout.flush();
+   vector<double> voronoi_coords(vout.numberofpoints * 2);
+   copy(vout.pointlist, vout.pointlist + vout.numberofpoints * 2, voronoi_coords.begin());
+   voronoi = make_unique<Mesh<2, 2>>(voronoi_coords);
+   for (size_t iv = 0; iv < vout.numberofpoints; iv++) {
+      voronoi->getOrCreateVertexByID(iv);
+   }
+   for (size_t ie = 0; ie < vout.numberofedges; ie++) {
+      if (vout.edgelist[ie * 2 + 0] > 0 && vout.edgelist[ie * 2 + 1] > 0)
+         Edge<2>* edge = voronoi->getOrCreateEdge(vout.edgelist[ie * 2 + 0], vout.edgelist[ie * 2 + 1]);
+   }
 
-   copy(triout.edgelist, triout.edgelist + triout.numberofedges,
-           back_inserter(*mesh.edges_lst));
-   copy(triout.trianglelist, triout.trianglelist + triout.numberoftriangles,
-           back_inserter(*mesh.faces_lst));
-
-   Mesh<2, 1>* hull = dynamic_cast<Mesh<2, 1>*>(mesh.getHull());
-   for (size_t iv = 0; iv < triout.numberofpoints; iv++) {
-      mesh.getOrCreateVertexByID(iv);
-      if (triout.pointmarkerlist[iv] > 0)
-         hull->getOrCreateVertexByID(iv);
-   }
-   LineHash linhash;
-   for (ID eid = 0; eid < triout.numberofedges; ++eid) {
-      mesh.insertEdge(eid);
-      if (triout.edgemarkerlist[eid] > 0)
-         hull->insertEdge(eid);
-   }
-   for (ID fid = 0; fid < triout.numberoftriangles; ++fid) {
-      mesh.insertFace(fid);
-   }
-   /*triangulate((char *) "v", &triio, &triout, &vout);
-   cout << "Voronoi done" << endl;
-   cout.flush();*/
 }
 
-template<>
-void Meshing::generate<3, 3>(Mesh<3, 3>& mesh)
+Mesh<2, 2>* FVM::getDualMesh() const
 {
-
+   return voronoi.get();
 }

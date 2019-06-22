@@ -1,0 +1,48 @@
+import yaml
+from jinja2 import Template
+import re
+import numpy as np
+
+all_domains = ["Vertex", "Edge", "Face", "Cell"]
+
+
+def generate(token, dims):
+    res = []
+    for i, dim in enumerate(dims):
+        for topdim in range(1, dim + 1):
+            res.append(((dim, topdim), Template(token).render({"Dim": dim, "TopDim": topdim})))
+    return res
+
+
+def append(map, key, val):
+    if key not in map:
+        map[key] = []
+    map[key].append(val)
+
+
+extents = {}
+with open("${meshattrs}", "r") as f:
+    y = yaml.load(f.read())
+    for key in y.keys():
+        dims = y[key].get("dimensions")
+        if not dims:
+            dims = [1, 2, 3]
+        else:
+            dims = np.sort(dims)
+        names = generate(key, dims)
+        types = generate(y[key]["type"], dims)
+        domains = y[key].get("domains")
+        for n, t in zip(names, types):
+            dim_tup = n[0]
+            for domain in all_domains[:dim_tup[1] + 1]:
+                if not domains or domain in domains:
+                    declar = "%template(getOrCreate" + n[1] + "AttributeOn" + domain + ") "\
+                        "getOrCreateAttributeOn" + domain + "<" + t[1] + ">;"
+                    append(extents, n[0], declar)
+
+with open("${meshattrs_in}", "w") as f:
+    for dim_tup in extents.keys():
+        f.write("%extend Mesh<" + str(dim_tup[0]) + ", " + str(dim_tup[1]) + "> {\n")
+        for declar in extents[dim_tup]:
+            f.write("   " + declar + "\n")
+        f.write("}\n")

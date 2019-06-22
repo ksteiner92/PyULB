@@ -155,7 +155,7 @@ void Delaunay2D::calcHull()
 
 void Delaunay2D::generate(Mesh<2, 2> &mesh)
 {
-   npts = mesh.getNumPoints();
+   npts = mesh.getNumVertices();
    if (npts < 3)
       throw logic_error("There is no grid for only two points");
 
@@ -210,10 +210,10 @@ void Delaunay2D::generate(Mesh<2, 2> &mesh)
       }
    }
    for (size_t it = 0; it < triout.numberoftriangles; it++) {
-      array<Edge<2>*, 3> edges  = {
-              mesh.getEdge(triout.trianglelist[it * 3 + 0], triout.trianglelist[it * 3 + 1]),
-              mesh.getEdge(triout.trianglelist[it * 3 + 0], triout.trianglelist[it * 3 + 2]),
-              mesh.getEdge(triout.trianglelist[it * 3 + 1], triout.trianglelist[it * 3 + 2])
+      array<ID, 3> edges  = {
+              mesh.getEdge(triout.trianglelist[it * 3 + 0], triout.trianglelist[it * 3 + 1])->getID(),
+              mesh.getEdge(triout.trianglelist[it * 3 + 0], triout.trianglelist[it * 3 + 2])->getID(),
+              mesh.getEdge(triout.trianglelist[it * 3 + 1], triout.trianglelist[it * 3 + 2])->getID()
       };
       mesh.getOrCreateFace(edges[0], edges[1], edges[2]);
    }
@@ -287,16 +287,16 @@ void Delaunay2D::generate(Mesh<2, 2> &mesh)
             ntri--;
          } else {
             tricount++;
-            array<Edge<2>*, 3> e;
-            e[0] = mesh.getOrCreateEdge(triangles[i].p[1], triangles[i].p[2]);
-            e[1] = mesh.getOrCreateEdge(triangles[i].p[2], triangles[i].p[0]);
-            e[2] = mesh.getOrCreateEdge(triangles[i].p[0], triangles[i].p[1]);
+            array<ID, 3> e;
+            e[0] = mesh.getOrCreateEdge(triangles[i].p[1], triangles[i].p[2])->getID();
+            e[1] = mesh.getOrCreateEdge(triangles[i].p[2], triangles[i].p[0])->getID();
+            e[2] = mesh.getOrCreateEdge(triangles[i].p[0], triangles[i].p[1])->getID();
             mesh.getOrCreateFace(e[0], e[1], e[2]);
-            const size_t maxid = max(e[0]->getID(), max(e[1]->getID(), e[2]->getID()));
+            const size_t maxid = max(e[0], max(e[1], e[2]));
             if (maxid >= nneibours.size())
                nneibours.resize(maxid + 1, 0);
             for (uint8_t ei = 0; ei < 3; ei++) {
-               const size_t eid = e[ei]->getID();
+               const size_t eid = e[ei];
                nneibours[eid]++;
             }
          }

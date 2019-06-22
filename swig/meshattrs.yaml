@@ -1,0 +1,35 @@
+Int:
+   type: int
+   domains: []
+   dimensions: [1,2,3]
+
+UInt8:
+   type: uint8_t
+   domains: [Vertex]
+   dimensions: [1,2,3]
+
+IntList:
+   type: std::vector<int>
+   domains: []
+   dimensions: [1,2,3]
+
+Double:
+   type: double
+   domains: []
+   dimensions: [1,2,3]
+
+DoubleList:
+   type: std::vector<double>
+   domains: []
+   dimensions: [1,2,3]
+
+Point{{Dim}}D:
+   type: Eigen::Matrix<double, {{Dim}}, 1>
+   domains: []
+   dimensions: [1,2,3]
+
+Point{{Dim}}DList:
+   type: std::vector<Eigen::Matrix<double, {{Dim}}, 1>>
+   domains: []
+   dimensions: [1,2,3]
+

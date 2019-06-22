@@ -21,6 +21,7 @@ Poisson<Dim, TopDim>::Poisson(IMesh* mesh)
    const size_t nvertices = mesh->getNumVertices();
    K.resize(nvertices, nvertices);
    Mesh<Dim, 0>* mesh1D = dynamic_cast<Mesh<Dim, 0>*>(mesh);
+   vector<Triplet<double>> kij;
    progress.start(mesh->getNumBodies());
    for (size_t ic = 0; ic < mesh->getNumBodies(); ic++) {
       MeshElement* body = mesh->getBody(ic);
@@ -40,25 +41,13 @@ Poisson<Dim, TopDim>::Poisson(IMesh* mesh)
             const double Kij = (b[j] * b[i] + c[j] * c[i]) / Omega;
             const size_t k = min((*body)[i], (*body)[j]);
             const size_t l = max((*body)[i], (*body)[j]);
-            K.coeffRef(k, l) += Kij;
+            kij.push_back(Triplet<double>(k, l, Kij));
          }
       }
       progress.update(ic);
    }
+   K.setFromTriplets(kij.begin(), kij.end());
    progress.stop();
-}
-
-template<uint Dim, uint TopDim>
-double Poisson<Dim, TopDim>::orientation(const Matrix<double, Dim, 1>& p,
-                          const Matrix<double, Dim, 1>& q,
-                          const Matrix<double, Dim, 1>& i)
-{
-   const Matrix<double, Dim, 1> pq = q - p;
-   const Matrix<double, Dim, 1> pi = i - p;
-   const double o = pq(0) * pi(1) - pq(1) * pi(0);
-   if (abs(o) > 1.0e-16)
-      return o;
-   return 0.0;
 }
 
 template<uint Dim, uint TopDim>
@@ -90,11 +79,13 @@ void Poisson<Dim, TopDim>::grad(const string& u, const string& w) const
       for (uint8_t i = 0; i < nvertices; i++)
          p[i] = mesh0D->getPoint((*body)[i]);
       const double Omega = 0.5 * (p[1](0) * p[2](1) + p[0](0) * p[1](1) + p[0](1) * p[2](0) -
-                                p[1](0) * p[0](1) - p[2](0) * p[1](1) - p[2](1) * p[0](0));
+                                  p[1](0) * p[0](1) - p[2](0) * p[1](1) - p[2](1) * p[0](0));
       E->getValue(ib) = Matrix<double, Dim, 1>::Zero();
       for (int i = 0; i < nvertices; i++) {
-         E->getValue(ib)(0) += (p[(i + 1) % 3](1) - p[(i + 2) % 3](1)) * phi->getValue((*body)[i]) / (2.0 * Omega);
-         E->getValue(ib)(1) += (p[(i + 2) % 3](0) - p[(i + 1) % 3](0)) * phi->getValue((*body)[i]) / (2.0 * Omega);
+         E->getValue(ib)(0) += (p[(i + 1) % 3](1) - p[(i + 2) % 3](1))
+                 * phi->getValue((*body)[i]) / (2.0 * Omega);
+         E->getValue(ib)(1) += (p[(i + 2) % 3](0) - p[(i + 1) % 3](0))
+                 * phi->getValue((*body)[i]) / (2.0 * Omega);
       }
       progress.update(ib);
    }

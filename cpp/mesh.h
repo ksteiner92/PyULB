@@ -10,32 +10,57 @@
 #include <unordered_set>
 #include <memory>
 #include <algorithm>
+#include <sstream>
 
 #include "attributes.h"
 #include "eigen.h"
 #include "utils.h"
 
-template<uint Dim>
-class Vertex;
+typedef int ID;
 
-template<uint Dim>
-class Edge;
-
-template<uint Dim>
-class Face;
+class IMesh;
 
 template<uint Dim, uint TopDim>
 class Mesh;
 
+class Meshing;
+
 class MeshElement
 {
 public:
+   //MeshElement(IMesh* mesh) : mesh(mesh) {}
+
    virtual std::size_t getNumVertices() const = 0;
 
-   virtual std::size_t getID() const = 0;
+   virtual ID getID() const = 0;
 
-   virtual std::size_t operator[](std::size_t idx) const = 0;
+   virtual ID operator[](std::size_t idx) const = 0;
+
+   /*const Eigen::MatrixBase<double>& getPoint(std::size_t idx) const
+   {
+      mesh.
+   }
+
+protected:
+   IMesh* mesh;*/
+
 };
+
+template<uint Dim, int SimplexDim>
+class Simplex;
+
+#ifndef SWIG
+template <uint Dim>
+using Vertex = Simplex<Dim, 0>;
+
+template <uint Dim>
+using Edge = Simplex<Dim, 1>;
+
+template <uint Dim>
+using Face = Simplex<Dim, 2>;
+
+using Cell = Simplex<3, 3>;
+#endif
 
 template<uint Dim, int SimplexDim>
 struct SimplexTraits
@@ -45,7 +70,12 @@ template<uint Dim>
 struct SimplexTraits<Dim, 0>
 {
    typedef int FacetElementType;
-   typedef std::size_t FacetsType;
+   typedef ID FacetsType;
+
+   static constexpr std::vector<ID>* getVertexList(Mesh<Dim, 0>* mesh)
+   {
+      return nullptr;
+   }
 };
 
 template<uint Dim>
@@ -53,6 +83,11 @@ struct SimplexTraits<Dim, 1>
 {
    typedef Vertex<Dim>* FacetElementType;
    typedef std::array<FacetElementType, 2> FacetsType;
+
+   static constexpr std::vector<ID>* getVertexList(Mesh<Dim, 1>* mesh)
+   {
+      return mesh->edges_lst;
+   }
 };
 
 template<uint Dim>
@@ -60,6 +95,11 @@ struct SimplexTraits<Dim, 2>
 {
    typedef Edge<Dim>* FacetElementType;
    typedef std::array<FacetElementType, 3> FacetsType;
+
+   static constexpr std::vector<ID>* getVertexList(Mesh<Dim, 2>* mesh)
+   {
+      return mesh->faces_lst;
+   }
 };
 
 template<uint Dim>
@@ -67,6 +107,11 @@ struct SimplexTraits<Dim, 3>
 {
    typedef Face<Dim>* FacetElementType;
    typedef std::array<FacetElementType, 4> FacetsType;
+
+   static constexpr std::vector<ID>* getVertexList(Mesh<Dim, 3>* mesh)
+   {
+      return mesh->cells_lst;
+   }
 };
 
 template<uint Dim, int SimplexDim>
@@ -79,7 +124,7 @@ class Simplex : public MeshElement
 public:
    typedef typename SimplexTraits<Dim, SimplexDim>::FacetElementType FacetElementType;
    typedef typename SimplexTraits<Dim, SimplexDim>::FacetsType FacetsType;
-   typedef std::array<std::size_t, SimplexDim + 1> FacetPointListType;
+   typedef std::array<ID, SimplexDim + 1> FacetPointListType;
 
 private:
    template<class T, uint I>
@@ -114,35 +159,54 @@ private:
    };
 
 public:
-   Simplex() {}
-
-   Simplex(const FacetsType& facets, std::size_t id)
-      : facets(facets), id(id), pts({0})
+   /*Simplex(const FacetsType& facets, ID id)
+      :  facets(facets), id(id), pts({0})//, mesh(mesh)
    {
       GetPoints<void, SimplexDim>::get(pts, facets, 0);
+   }*/
+
+   Simplex(IMesh* mesh, ID id) : id(id), mesh(mesh), offset(0)
+   {
+      vertices = SimplexTraits<Dim, SimplexDim>::getVertexList(dynamic_cast<Mesh<Dim, SimplexDim>*>(mesh));
+      if (vertices != nullptr) {
+         vertices += id * SimplexDim;
+         offset = (*vertices)[0];
+      }
    }
 
-   std::size_t getID() const override
+   ID getID() const override
    {
       return id;
    }
 
-   std::size_t operator[](std::size_t idx) const override
+   ID operator[](std::size_t idx) const override
    {
       if (idx >= SimplexDim + 1) {
-         std::cout << "Simplex operator[]: Index out of bounds" << std::endl;
-         std::cout.flush();
-         throw std::out_of_range("Index out of range");
+         std::stringstream ss;
+         ss << "Index " << idx << " out of bounds";
+         throw std::out_of_range(ss.str());
       }
-      return pts[idx];
+      if (vertices != nullptr)
+         return (*vertices)[idx];
+      return id;
    }
 
-   FacetElementType getFacet(std::size_t idx)
+   const Eigen::Matrix<double, Dim, 1>& getPoint(std::size_t idx) const
+   {
+      if (idx >= SimplexDim + 1) {
+         std::stringstream ss;
+         ss << "Index " << idx << " out of bounds";
+         throw std::out_of_range(ss.str());
+      }
+      return reinterpret_cast<Mesh<Dim, 0>*>(mesh)->getPoint(offset + idx);
+   }
+
+   /*FacetElementType getFacet(std::size_t idx)
    {
       if (idx >= facets.size()) {
-         std::cout << "Simplex getFacet: Index out of bounds" << std::endl;
-         std::cout.flush();
-         throw std::out_of_range("Index out of range");
+         std::stringstream ss;
+         ss << "Index " << idx << " out of bounds";
+         throw std::out_of_range(ss.str());
       }
       return facets[idx];
    }
@@ -150,104 +214,69 @@ public:
    FacetsType& getFacets()
    {
       return facets;
-   }
+   }*/
 
    std::size_t getNumVertices() const override
    {
-      return pts.size();
+      return SimplexDim + 1;
    }
 
 protected:
-   std::size_t id;
-   FacetsType facets;
-   FacetPointListType pts;
+   ID id;
+   std::vector<ID>* vertices;
+   std::size_t offset;
+   IMesh* mesh;
 
-};
+   //FacetsType facets;
+   //FacetPointListType pts;
 
-template<uint Dim>
-class Vertex : public Simplex<Dim, 0>
-{
-public:
-   Vertex() {}
-
-   Vertex(const typename Vertex::FacetsType& facets, std::size_t id)
-      : Simplex<Dim, 0>(facets, id)
-   {}
-};
-
-template<uint Dim>
-class Edge : public Simplex<Dim, 1>
-{
-public:
-   Edge() {}
-
-   Edge(const typename Edge::FacetsType& facets, std::size_t id)
-           : Simplex<Dim, 1>(facets, id)
-   {}
-
-};
-
-template<uint Dim>
-class Face : public Simplex<Dim, 2>
-{
-   static_assert(Dim >= 2, "Face can only exist on 2D or 3D grid");
-
-public:
-   Face() {}
-
-   Face(const typename Face::FacetsType& facets, std::size_t id)
-           : Simplex<Dim, 2>(facets, id)
-   {}
-
-};
-
-class Cell : public Simplex<3, 3>
-{
-public:
-   Cell() {}
-
-   Cell(const typename Cell::FacetsType& facets, std::size_t id)
-      : Simplex<3, 3>(facets, id)
-   {}
 
 };
 
 class IMesh
 {
 public:
+#ifndef SWIG
+   virtual Eigen::Ref<const Eigen::VectorXd> getPoint(std::size_t idx) = 0;
+#endif
+
+   virtual const std::vector<double>& getCoords() const = 0;
+
+   virtual std::vector<double>& getCoords() = 0;
+
    virtual std::size_t getNumVertices() const = 0;
 
    virtual MeshElement* getVertex(std::size_t idx) const = 0;
 
-   virtual std::size_t getVertexID(std::size_t idx) const = 0;
+   virtual ID getVertexID(std::size_t idx) const = 0;
 
-   virtual std::size_t getVertexIdx(std::size_t id) const = 0;
+   virtual std::size_t getVertexIdx(ID id) const = 0;
 
-   virtual MeshElement* getVertexByID(std::size_t id) const = 0;
+   virtual MeshElement* getVertexByID(ID id) const = 0;
 
    virtual std::size_t getNumBodies() const = 0;
 
    virtual MeshElement* getBody(std::size_t idx) const = 0;
 
-   virtual MeshElement* getBodyByID(std::size_t id) const = 0;
+   virtual MeshElement* getBodyByID(ID id) const = 0;
 
    virtual std::size_t getNumFacets() const = 0;
 
    virtual MeshElement* getFacet(std::size_t idx) const = 0;
 
-   virtual MeshElement* getFacetByID(std::size_t id) const = 0;
+   virtual MeshElement* getFacetByID(ID id) const = 0;
 
    virtual std::size_t getNumRidges() const = 0;
 
    virtual MeshElement* getRidge(std::size_t idx) const = 0;
 
-   virtual MeshElement* getRidgeByID(std::size_t id) const = 0;
+   virtual MeshElement* getRidgeByID(ID id) const = 0;
 
    virtual std::size_t getNumPeaks() const = 0;
 
    virtual MeshElement* getPeak(std::size_t idx) const = 0;
 
-   virtual MeshElement* getPeakByID(std::size_t id) const = 0;
+   virtual MeshElement* getPeakByID(ID id) const = 0;
 
    virtual IMesh* getHull() const = 0;
 
@@ -269,9 +298,11 @@ template<uint Dim>
 class Mesh<Dim, 0> : public IMesh
 {
    static_assert(Dim >= 0 && Dim <= 3, "Dimension not supported");
+   friend SimplexTraits<Dim, 0>;
+   friend Meshing;
 
 public:
-   Mesh(std::vector<Eigen::Matrix<double, Dim, 1>>* points);
+   Mesh(const std::vector<double>& coords);
 
    template<uint TopDim>
    Mesh(Mesh<Dim, TopDim>* mesh) : points(mesh->points)
@@ -284,25 +315,25 @@ public:
 
    virtual MeshElement* getBody(std::size_t idx) const override;
 
-   virtual MeshElement* getBodyByID(std::size_t id) const override;
+   virtual MeshElement* getBodyByID(ID id) const override;
 
    virtual std::size_t getNumFacets() const override;
 
    virtual MeshElement* getFacet(std::size_t idx) const override;
 
-   virtual MeshElement* getFacetByID(std::size_t id) const override;
+   virtual MeshElement* getFacetByID(ID id) const override;
 
    virtual std::size_t getNumRidges() const override;
 
    virtual MeshElement* getRidge(std::size_t idx) const override;
 
-   virtual MeshElement* getRidgeByID(std::size_t id) const override;
+   virtual MeshElement* getRidgeByID(ID id) const override;
 
    virtual std::size_t getNumPeaks() const override;
 
    virtual MeshElement* getPeak(std::size_t idx) const override;
 
-   virtual MeshElement* getPeakByID(std::size_t id) const override;
+   virtual MeshElement* getPeakByID(ID id) const override;
 
    virtual BaseAttribute* getAttributeOnBody(const std::string &name) const override;
 
@@ -314,19 +345,29 @@ public:
 
    const Eigen::Matrix<double, Dim, 1>& getPoint(std::size_t idx) const;
 
-   std::vector<Eigen::Matrix<double, Dim, 1>>* getPoints() const;
+   //std::vector<Eigen::Matrix<double, Dim, 1>>* getPoints() const;
 
-   std::size_t getNumPoints() const;
+   virtual const std::vector<double>& getCoords() const override;
 
-   Vertex<Dim>* getVertex(std::size_t idx) const override;
+   virtual std::vector<double>& getCoords() override;
 
-   std::size_t getVertexID(std::size_t idx) const override;
+#ifndef SWIG
+   Eigen::Ref<const Eigen::VectorXd> getPoint(std::size_t idx) override;
+#endif
 
-   std::size_t getVertexIdx(std::size_t id) const override;
+   //Vertex<Dim>* getVertex(std::size_t idx);
 
-   Vertex<Dim>* getVertexByID(std::size_t id) const override;
+   MeshElement* getVertex(std::size_t idx) const override;
 
-   Vertex<Dim>* getOrCreateVertexByID(std::size_t id);
+   ID getVertexID(std::size_t idx) const override;
+
+   std::size_t getVertexIdx(ID id) const override;
+
+   //Vertex<Dim>* getVertexByID(ID id);
+
+   MeshElement* getVertexByID(ID id) const override;
+
+   Vertex<Dim>* getOrCreateVertexByID(ID id);
 
    std::size_t getNumVertices() const override;
 
@@ -422,11 +463,19 @@ protected:
    }
 
 protected:
-   std::vector<Eigen::Matrix<double, Dim, 1>>* points;
-   std::unordered_map<std::string, std::unique_ptr<BaseAttribute>> vertexAttrs;
+   // Coordinates
+   std::vector<double> coords;
+   std::vector<Eigen::Matrix<double, Dim, 1>> points;
+
+   //Referenced elements
+   std::vector<ID> refvertices;
+
+   //Elements
    std::unique_ptr<std::vector<std::unique_ptr<Vertex<Dim>>>> vertices_owner;
    std::vector<std::unique_ptr<Vertex<Dim>>>* vertices;
-   std::vector<std::size_t> refvertices;
+
+   //Atributes
+   std::unordered_map<std::string, std::unique_ptr<BaseAttribute>> vertexAttrs;
 
 };
 
@@ -434,13 +483,15 @@ template<uint Dim>
 class Mesh<Dim, 1> : public Mesh<Dim, 0>
 {
    static_assert(Dim >= 1, "Topological dimension not supported");
+   friend SimplexTraits<Dim, 1>;
+   friend Meshing;
 
 public:
    /**
     *
     * @param points
     */
-   Mesh(std::vector<Eigen::Matrix<double, Dim, 1>>* points);
+   Mesh(const std::vector<double>& coords);
 
    /**
     *
@@ -451,6 +502,7 @@ public:
    Mesh(Mesh<Dim, TopDim>* mesh) : Mesh<Dim, 0>(mesh)
    {
       static_assert(TopDim >= 1, "Dimension mismatch");
+      edges_lst = mesh->edges_lst;
       edges = mesh->edges;
       vhash2id = mesh->vhash2id;
       vertex2edge = mesh->vertex2edge;
@@ -461,25 +513,25 @@ public:
 
    virtual MeshElement* getBody(std::size_t idx) const override;
 
-   virtual MeshElement* getBodyByID(std::size_t id) const override;
+   virtual MeshElement* getBodyByID(ID id) const override;
 
    virtual std::size_t getNumFacets() const override;
 
    virtual MeshElement* getFacet(std::size_t idx) const override;
 
-   virtual MeshElement* getFacetByID(std::size_t id) const override;
+   virtual MeshElement* getFacetByID(ID id) const override;
 
    virtual std::size_t getNumRidges() const override;
 
    virtual MeshElement* getRidge(std::size_t idx) const override;
 
-   virtual MeshElement* getRidgeByID(std::size_t id) const override;
+   virtual MeshElement* getRidgeByID(ID id) const override;
 
    virtual std::size_t getNumPeaks() const override;
 
    virtual MeshElement* getPeak(std::size_t idx) const override;
 
-   virtual MeshElement* getPeakByID(std::size_t id) const override;
+   virtual MeshElement* getPeakByID(ID id) const override;
 
    virtual BaseAttribute* getAttributeOnBody(const std::string &name) const override;
 
@@ -496,7 +548,7 @@ public:
     * @return The pointer to the edge if found, otherwise
     * nullptr
     */
-   Edge<Dim>* getEdge(std::size_t idx) const;
+   Simplex<Dim, 1>* getEdge(std::size_t idx) const;
 
    /**
     * Returns the edge with the ID @param id
@@ -505,25 +557,25 @@ public:
     * @return The pointer to the edge if found, otherwise
     * nullptr
     */
-   Edge<Dim>* getEdgeByID(std::size_t id) const;
+   Simplex<Dim, 1>* getEdgeByID(ID id) const;
 
    /**
     *
     * @param id
     * @return
     */
-   Edge<Dim>* getOrCreateEdgeByID(std::size_t id);
+   Simplex<Dim, 1>* getOrCreateEdgeByID(ID id);
 
-   Edge<Dim>* getEdge(std::size_t vid1, std::size_t vid2) const;
+   Simplex<Dim, 1>* getEdge(ID vid1, ID vid2) const;
 
-   Edge<Dim>* getOrCreateEdge(std::size_t vid1, std::size_t vid2);
+   Simplex<Dim, 1>* getOrCreateEdge(ID vid1, ID vid2);
 
    std::size_t getNumEdges() const;
 
    virtual IMesh* getHull() const override;
 
-   std::pair<typename std::unordered_multimap<std::size_t, Edge<Dim>*>::const_iterator,
-           typename std::unordered_multimap<std::size_t, Edge<Dim>*>::const_iterator> getEdgesOfVertex(std::size_t idx) const;
+   std::pair<typename std::unordered_multimap<ID, Edge<Dim>*>::const_iterator,
+           typename std::unordered_multimap<ID, Edge<Dim>*>::const_iterator> getEdgesOfVertex(std::size_t idx) const;
 
    template<class T>
    Attribute<T>* getAttributeOnEdge(const std::string &name)
@@ -544,15 +596,30 @@ public:
    }
 
 protected:
-   std::unordered_map<std::string, std::unique_ptr<BaseAttribute>> edgeAttrs;
+   Edge<Dim>* insertEdge(ID id);
+
+   //Edge lists
+   std::unique_ptr<std::vector<ID>> edges_lst_owner;
+   std::vector<ID>* edges_lst;
+
+   //Referenced elements
+   std::vector<ID> refedges;
+
+   // Elements
    std::unique_ptr<std::vector<std::unique_ptr<Edge<Dim>>>> edges_owner;
-   std::unique_ptr<std::unordered_map<ullong, std::size_t>> vhash2id_owner;
    std::vector<std::unique_ptr<Edge<Dim>>>* edges;
-   std::unordered_map<ullong, std::size_t>* vhash2id;
-   std::vector<std::size_t> refedges;
-   std::unique_ptr<std::unordered_multimap<std::size_t, Edge<Dim>*>> vertex2edge_owner;
-   std::unordered_multimap<std::size_t, Edge<Dim>*>* vertex2edge;
+
+   // Neighbor relations
    LineHash linhash;
+   std::unique_ptr<std::unordered_map<ullong, ID>> vhash2id_owner;
+   std::unordered_map<ullong, ID>* vhash2id;
+   std::unique_ptr<std::unordered_multimap<ID, Edge<Dim>*>> vertex2edge_owner;
+   std::unordered_multimap<ID, Edge<Dim>*>* vertex2edge;
+
+   // Attributes
+   std::unordered_map<std::string, std::unique_ptr<BaseAttribute>> edgeAttrs;
+
+   // Sub meshes
    std::unique_ptr<Mesh<Dim, 0>> hull;
 
 };
@@ -561,14 +628,17 @@ template<uint Dim>
 class Mesh<Dim, 2> : public Mesh<Dim, 1>
 {
    static_assert(Dim >= 2, "Topological dimension not supported");
+   friend SimplexTraits<Dim, 2>;
+   friend Meshing;
 
 public:
-   Mesh(std::vector<Eigen::Matrix<double, Dim, 1>>* points);
+   Mesh(const std::vector<double>& coords);
 
    template<uint TopDim>
    Mesh(Mesh<Dim, TopDim>* mesh) : Mesh<Dim, 1>(mesh)
    {
       static_assert(TopDim >= 2, "Dimension mismatch");
+      faces_lst = mesh->faces_lst;
       faces = mesh->faces;
       ehash2id = mesh->ehash2id;
       vertex2face = mesh->vertex2face;
@@ -580,25 +650,25 @@ public:
 
    virtual MeshElement* getBody(std::size_t idx) const override;
 
-   virtual MeshElement* getBodyByID(std::size_t id) const override;
+   virtual MeshElement* getBodyByID(ID id) const override;
 
    virtual std::size_t getNumFacets() const override;
 
    virtual MeshElement* getFacet(std::size_t idx) const override;
 
-   virtual MeshElement* getFacetByID(std::size_t id) const override;
+   virtual MeshElement* getFacetByID(ID id) const override;
 
    virtual std::size_t getNumRidges() const override;
 
    virtual MeshElement* getRidge(std::size_t idx) const override;
 
-   virtual MeshElement* getRidgeByID(std::size_t id) const override;
+   virtual MeshElement* getRidgeByID(ID id) const override;
 
    virtual std::size_t getNumPeaks() const override;
 
    virtual MeshElement* getPeak(std::size_t idx) const override;
 
-   virtual MeshElement* getPeakByID(std::size_t id) const override;
+   virtual MeshElement* getPeakByID(ID id) const override;
 
    virtual BaseAttribute* getAttributeOnBody(const std::string &name) const override;
 
@@ -608,20 +678,18 @@ public:
 
    virtual BaseAttribute* getAttributeOnPeak(const std::string &name) const override;
 
-   Face<Dim>* getFace(std::size_t idx) const;
+   Simplex<Dim, 2>* getFace(std::size_t idx) const;
 
-   Face<Dim>* getFaceByID(std::size_t id) const;
+   Simplex<Dim, 2>* getFaceByID(ID id) const;
 
-   Face<Dim>* getFace(std::size_t eid1, std::size_t eid2, std::size_t eid3) const;
+   Simplex<Dim, 2>* getFace(ID eid1, ID eid2, ID eid3) const;
 
-   Face<Dim>* getOrCreateFace(std::size_t eid1, std::size_t eid2, std::size_t eid3);
-
-   Face<Dim>* getOrCreateFace(Edge<Dim>* e1, Edge<Dim>* e2, Edge<Dim>* e3);
+   Simplex<Dim, 2>* getOrCreateFace(ID eid1, ID eid2, ID eid3);
 
    std::size_t getNumFaces() const;
 
-   std::pair<typename std::unordered_multimap<std::size_t, Face<Dim>*>::const_iterator,
-   typename std::unordered_multimap<std::size_t, Face<Dim>*>::const_iterator> getFacesOfEdge(Edge<Dim>* edge) const;
+   std::pair<typename std::unordered_multimap<ID, Face<Dim>*>::const_iterator,
+   typename std::unordered_multimap<ID, Face<Dim>*>::const_iterator> getFacesOfEdge(Edge<Dim>* edge) const;
 
    virtual IMesh* getHull() const override;
 
@@ -644,17 +712,32 @@ public:
    }
 
 protected:
-   std::unordered_map<std::string, std::unique_ptr<BaseAttribute>> facesAttrs;
+   Face<Dim>* insertFace(ID id);
+
+   //Face list
+   std::unique_ptr<std::vector<ID>> faces_lst_owner;
+   std::vector<ID>* faces_lst;
+
+   // Referenced elements
+   std::vector<ID> reffaces;
+
+   // Elements
    std::unique_ptr<std::vector<std::unique_ptr<Face<Dim>>>> faces_owner;
-   std::unique_ptr<std::unordered_map<ullong, std::size_t>> ehash2id_owner;
    std::vector<std::unique_ptr<Face<Dim>>>* faces;
-   std::vector<std::size_t> reffaces;
-   std::unordered_map<ullong, std::size_t>* ehash2id;
-   std::unique_ptr<std::unordered_multimap<std::size_t, Face<Dim>*>> vertex2face_owner;
-   std::unordered_multimap<std::size_t, Face<Dim>*>* vertex2face;
-   std::unique_ptr<std::unordered_multimap<std::size_t, Face<Dim>*>> edge2face_owner;
-   std::unordered_multimap<std::size_t, Face<Dim>*>* edge2face;
+
+   // Neighbor relations
    TriangleHash trihash;
+   std::unique_ptr<std::unordered_map<ullong, ID>> ehash2id_owner;
+   std::unordered_map<ullong, ID>* ehash2id;
+   std::unique_ptr<std::unordered_multimap<ID, Face<Dim>*>> vertex2face_owner;
+   std::unordered_multimap<ID, Face<Dim>*>* vertex2face;
+   std::unique_ptr<std::unordered_multimap<ID, Face<Dim>*>> edge2face_owner;
+   std::unordered_multimap<ID, Face<Dim>*>* edge2face;
+
+   // Attributes
+   std::unordered_map<std::string, std::unique_ptr<BaseAttribute>> facesAttrs;
+
+   // Sub meshes
    std::unique_ptr<Mesh<Dim, 1>> hull;
 
 };
@@ -662,32 +745,36 @@ protected:
 template<>
 class Mesh<3, 3> : public Mesh<3, 2>
 {
+   friend SimplexTraits<3, 3>;
+   friend Meshing;
+
 public:
-   Mesh(std::vector<Eigen::Matrix<double, 3, 1>>* points);
+   //Mesh(vector<Matrix<double, 3, 1>>* points);
+   Mesh(const std::vector<double>& coords);
 
    std::size_t getNumBodies() const override;
 
    MeshElement* getBody(std::size_t idx) const override;
 
-   MeshElement* getBodyByID(std::size_t id) const override;
+   MeshElement* getBodyByID(ID id) const override;
 
    std::size_t getNumFacets() const override;
 
    MeshElement* getFacet(std::size_t idx) const override;
 
-   MeshElement* getFacetByID(std::size_t id) const override;
+   MeshElement* getFacetByID(ID id) const override;
 
    std::size_t getNumRidges() const override;
 
    MeshElement* getRidge(std::size_t idx) const override;
 
-   MeshElement* getRidgeByID(std::size_t id) const override;
+   MeshElement* getRidgeByID(ID id) const override;
 
    std::size_t getNumPeaks() const override;
 
    MeshElement* getPeak(std::size_t idx) const override;
 
-   MeshElement* getPeakByID(std::size_t id) const override;
+   MeshElement* getPeakByID(ID id) const override;
 
    BaseAttribute* getAttributeOnBody(const std::string &name) const override;
 
@@ -697,9 +784,9 @@ public:
 
    BaseAttribute* getAttributeOnPeak(const std::string &name) const override;
 
-   Cell* getCell(std::size_t idx) const;
+   Simplex<3, 3>* getCell(std::size_t idx) const;
 
-   Cell* getCellByID(std::size_t id) const;
+   Simplex<3, 3>* getCellByID(ID id) const;
 
    std::size_t getNumCells() const;
 
@@ -722,10 +809,13 @@ public:
    }
 
 protected:
+   std::unique_ptr<ID[]> cells_lst_owner;
+   std::vector<ID>* cells_lst;
+
    std::vector<std::unique_ptr<Cell>> cells;
-   std::unordered_multimap<unsigned long long int, Cell*> point2body;
-   std::unordered_multimap<unsigned long long int, Cell*> edge2body;
-   std::unordered_multimap<unsigned long long int, Cell*> face2body;
+   std::unordered_multimap<ullong, Cell*> point2body;
+   std::unordered_multimap<ullong, Cell*> edge2body;
+   std::unordered_multimap<ullong, Cell*> face2body;
    std::unordered_map<std::string, std::unique_ptr<BaseAttribute>> cellsAttrs;
    Mesh<3, 2>* hull;
 

@@ -7,12 +7,12 @@
 
 #include "mesh.h"
 
-template<uint Dim, uint TopDim>
 class Meshing
 {
 public:
    Meshing();
 
+   template<uint Dim, uint TopDim>
    void generate(Mesh<Dim, TopDim>& mesh);
 
 };

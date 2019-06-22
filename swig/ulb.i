@@ -3,7 +3,7 @@
 #define SWIG_FILE_WITH_INIT
 #include <Python.h>
 #include "lbm.h"
-#include "delauny.h"
+//#include "delauny.h"
 %}
 
 %include <typemaps.i>
@@ -22,7 +22,7 @@
 %template(Point2DList) std::vector<Eigen::Matrix<double, 2, 1>>;
 %template(Point3DList) std::vector<Eigen::Matrix<double, 3, 1>>;
 
-%include "delauny.h"
+//%include "delauny.h"
 %include "mesh.i"
 %include "poisson.i"
 
@@ -34,8 +34,8 @@
 %template(ArrayInt3) std::array<int, 3>;
 %template(ArrayInt4) std::array<int, 4>;
 
-%ignore Circle;
-%ignore Triangle;
-%nodefaultctor Delaunay2D;
+//%ignore Circle;
+//%ignore Triangle;
+//%nodefaultctor Delaunay2D;
 
 %include "lbm.h"
